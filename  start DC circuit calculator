@@ -1,0 +1,22 @@
+[1mdiff --git a/.gitignore b/.gitignore[m
+[1mnew file mode 100644[m
+[1mindex 0000000..c974889[m
+[1m--- /dev/null[m
+[1m+++ b/.gitignore[m
+[36m@@ -0,0 +1,4 @@[m
+[32m+[m[32m__pycache__/[m
+[32m+[m[32m*.pyc[m
+[32m+[m[32m.venv/[m
+[32m+[m[32m.env[m
+\ No newline at end of file[m
+[1mdiff --git a/README.md b/README.md[m
+[1mnew file mode 100644[m
+[1mindex 0000000..f972e5d[m
+[1m--- /dev/null[m
+[1m+++ b/README.md[m
+[36m@@ -0,0 +1,4 @@[m
+[32m+[m[32mระบบติดตามประสิทธิภาพโซลาร์เซลล์ (Solar Cell Monitoring System)[m
+[32m+[m[32mคำอธิบาย: อุปกรณ์และเว็บแอปพลิเคชันสำหรับวัดแรงดัน กระแส และกำลังไฟฟ้าที่ผลิตได้จากแผงโซลาร์เซลล์แบบเรียลไทม์ พร้อมแสดงผลผ่านแดชบอร์ดออนไลน์[m
+[32m+[m
+[32m+[m[32mวัตถุประสงค์: เพื่อวิเคราะห์ประสิทธิภาพการผลิตพลังงานแสงอาทิตย์ และช่วยคำนวณความคุ้มค่าหรืออัตราการประหยัดพลังงานในชีวิตประจำวัน[m
+\ No newline at end of file[m
