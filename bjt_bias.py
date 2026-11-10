@@ -236,3 +236,59 @@ def compare(
     magnitudes = [abs(row.delta_pct) for row in rows if row.delta_pct is not None]
     max_delta_pct = max(magnitudes) if magnitudes else None
     return tuple(rows), max_delta_pct, comparison_verdict(max_delta_pct)
+
+
+@dataclass(frozen=True)
+class BiasSolution:
+    inputs: BiasInputs
+    exact: OperatingPoint
+    approximate: OperatingPoint | None
+    rows: tuple[ComparisonRow, ...]
+    max_delta_pct: float | None
+    verdict: str | None
+    region: str
+    messages: tuple[Message, ...]
+    ic_sat: float | None
+    forced_beta: float | None
+
+
+CUTOFF_MESSAGE = Message(
+    "warning",
+    "VBB is at or below VBE, so the transistor is cut off: IC = 0.",
+)
+
+
+def solve(inputs: BiasInputs) -> BiasSolution:
+    exact = solve_exact(inputs)
+    ic_sat: float | None = None
+    forced_beta: float | None = None
+
+    if exact.vbb <= inputs.vbe:
+        exact = clamp_cutoff(inputs, exact)
+        region = "cut-off"
+        messages = (CUTOFF_MESSAGE,)
+    else:
+        region, messages = classify(inputs, exact)
+        if region == "saturation":
+            ic_sat, forced_beta = saturation_reference(inputs, exact)
+
+    approximate = solve_approximate(inputs) if exact.ic > 0 else None
+    if approximate is None:
+        rows: tuple[ComparisonRow, ...] = ()
+        max_delta_pct = None
+        verdict = None
+    else:
+        rows, max_delta_pct, verdict = compare(exact, approximate)
+
+    return BiasSolution(
+        inputs=inputs,
+        exact=exact,
+        approximate=approximate,
+        rows=rows,
+        max_delta_pct=max_delta_pct,
+        verdict=verdict,
+        region=region,
+        messages=messages,
+        ic_sat=ic_sat,
+        forced_beta=forced_beta,
+    )

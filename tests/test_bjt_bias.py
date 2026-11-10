@@ -3,7 +3,8 @@ from dataclasses import replace
 import pytest
 from bjt_bias import (VCE_NEAR_SAT_V, VCE_SAT_V, BiasInputs, classify,
                       clamp_cutoff, compare, comparison_verdict, parse_inputs,
-                      saturation_reference, solve_approximate, solve_exact)
+                      saturation_reference, solve, solve_approximate,
+                      solve_exact)
 
 VALID = {"vcc": "12", "r1": "47000", "r2": "10000", "rc": "2200",
          "re": "1000", "beta": "150", "vbe": "0.7"}
@@ -151,3 +152,36 @@ def test_comparison_rows_and_verdict():
 ])
 def test_comparison_verdict_boundaries(value, expected):
     assert comparison_verdict(value) == expected
+
+
+def test_golden_solution_is_active_and_compares():
+    solution = solve(GOLDEN)
+    assert solution.region == "active"
+    assert solution.approximate is not None
+    assert len(solution.rows) == 6
+    assert solution.verdict == "small"
+    assert solution.max_delta_pct == pytest.approx(6.16374269006, rel=REL)
+    assert solution.ic_sat is None and solution.forced_beta is None
+
+
+def test_cutoff_suppresses_comparison():
+    solution = solve(replace(GOLDEN, r1=100000.0, r2=1000.0))
+    assert solution.region == "cut-off"
+    assert solution.exact.ic == 0.0 and solution.exact.vc == GOLDEN.vcc
+    assert solution.approximate is None and solution.rows == ()
+    assert solution.verdict is None and solution.max_delta_pct is None
+    assert [m.severity for m in solution.messages] == ["warning"]
+
+
+def test_saturation_reports_reference_values():
+    solution = solve(replace(GOLDEN, rc=10000.0))
+    assert solution.region == "saturation"
+    assert solution.ic_sat == pytest.approx(0.00107272727273, rel=REL)
+    assert solution.forced_beta == pytest.approx(121.562365225, rel=REL)
+    assert solution.messages[0].severity == "error"
+
+
+def test_zero_emitter_resistor_does_not_crash():
+    solution = solve(replace(GOLDEN, re=0.0))
+    assert solution.exact.ic == pytest.approx(0.0255638297872, rel=REL)
+    assert solution.approximate is None and solution.rows == ()
