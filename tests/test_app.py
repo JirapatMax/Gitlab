@@ -41,7 +41,8 @@ def test_valid_post_shows_qpoint_with_units(client):
     assert response.status_code == 200
     assert "1.32 mA" in body
     assert "7.76 V" in body
-    assert "Active region operation OK" in body
+    assert "Active region approximation OK" in body
+    assert "transistor in active region" in body
     assert "6.16" in body
     assert "81.6 µA" in body
 

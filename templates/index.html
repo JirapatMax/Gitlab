@@ -1,18 +1,31 @@
 {% extends "base.html" %}
 
+{% macro icon(name) -%}
+<svg class="ico" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor"
+     stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+  {%- if name == "sliders" -%}
+  <line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/>
+  <circle cx="9" cy="6" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="8" cy="18" r="2"/>
+  {%- elif name == "zap" -%}
+  <polygon points="13 2 4 14 11 14 10 22 20 10 13 10 13 2"/>
+  {%- else -%}
+  <line x1="6" y1="20" x2="6" y2="12"/><line x1="12" y1="20" x2="12" y2="5"/><line x1="18" y1="20" x2="18" y2="9"/>
+  {%- endif -%}
+</svg>
+{%- endmacro %}
+
 {% block content %}
-<header class="topbar">
-  <span class="course">Computer programming for Electrical Engineers</span>
+<header class="page-head">
+  <div class="page-head-row">
+    <h1>Lab 02: BJT DC Bias Web App</h1>
+    <span class="course">Computer programming for Electrical Engineers</span>
+  </div>
+  <p class="subtitle">ENG29 2121 &mdash; Common Emitter (Voltage Divider Bias)</p>
 </header>
 
-<div class="page-head">
-  <h1>Lab 02: BJT DC Bias Web App</h1>
-  <p class="subtitle">ENG29 2121 &middot; Common Emitter (Voltage Divider Bias)</p>
-</div>
-
 <div class="grid">
-  <section class="card">
-    <h2>Input Parameters</h2>
+  <section class="card input-card">
+    <h2>{{ icon("sliders") }}Input Parameters</h2>
 
     <form method="post" action="/">
       {% set fields = [
@@ -40,8 +53,8 @@
     </form>
   </section>
 
-  <section class="card">
-    <h2>Circuit: Common-Emitter Amplifier</h2>
+  <section class="card circuit-card">
+    <h2>{{ icon("zap") }}Circuit: Common-Emitter Amplifier</h2>
 
     <svg class="schematic" viewBox="0 0 360 295" role="img"
          aria-label="NPN common-emitter amplifier with voltage-divider bias: R1 from VCC to the base, R2 from the base to ground, RC from VCC to the collector, RE from the emitter to ground, and transistor Q1.">
@@ -99,7 +112,7 @@
   </section>
 
   <section class="card results">
-    <h2>DC Bias Results</h2>
+    <h2>{{ icon("bars") }}DC Bias Results</h2>
 
     <div class="qtable">
       {% if solution %}
@@ -114,10 +127,6 @@
       {% for qlabel, qvalue, qunit in main_rows %}
       <div class="qrow"><span class="qk">{{ qlabel }}</span><span class="qv">{{ qvalue|si(qunit) }}</span></div>
       {% endfor %}
-      <div class="qdetail">
-        <div class="qrow"><span class="qk">RB</span><span class="qv">{{ solution.exact.rb|si("Ω") }}</span></div>
-        <div class="qrow"><span class="qk">P</span><span class="qv">{{ solution.exact.p_transistor|si("W") }}</span></div>
-      </div>
       {% else %}
       {% for qlabel in ["VBB", "VE", "VC", "VCE", "IB", "IC", "IE"] %}
       <div class="qrow"><span class="qk">{{ qlabel }}</span><span class="qv qv-empty">&mdash;</span></div>
@@ -127,15 +136,20 @@
 
     {% if solution %}
     {% set status_titles = {
-         "active": "Active region operation OK",
+         "active": "Active region approximation OK",
          "near-saturation": "Close to saturation",
          "saturation": "Transistor in saturation",
          "cut-off": "Transistor cut off"} %}
     <div class="status status-{{ solution.region }}">
       <p class="status-title">{{ status_titles[solution.region] }}</p>
+      {% if solution.region == "active" %}
+      <p class="status-text">VCE = {{ solution.exact.vce|si("V") }} &gt; 0.2 V
+         (transistor in active region).</p>
+      {% else %}
       {% for message in solution.messages %}
       <p class="status-text">{{ message.text }}</p>
       {% endfor %}
+      {% endif %}
       {% if solution.ic_sat is not none %}
       <p class="status-text">IC(sat) = {{ solution.ic_sat|si("A") }},
          forced β = {{ "%.3g"|format(solution.forced_beta) }}.</p>
@@ -189,6 +203,8 @@
   <p class="muted">No comparison for this operating point: the approximate model needs an
      emitter resistor and a conducting transistor.</p>
   {% endif %}
+  <p class="qmeta">Thevenin base resistance <strong>RB = {{ solution.exact.rb|si("Ω") }}</strong>
+     &middot; transistor dissipation <strong>P = {{ solution.exact.p_transistor|si("W") }}</strong>.</p>
 </section>
 {% endif %}
 
