@@ -4,6 +4,7 @@ from typing import Mapping
 
 MAX_VCC = 1000.0
 MAX_RESISTANCE = 1e9
+MIN_RESISTANCE = 1e-6
 MAX_BETA = 1e5
 
 VCE_SAT_V = 0.2
@@ -61,6 +62,8 @@ def parse_inputs(raw: Mapping[str, str]) -> tuple[BiasInputs | None, dict[str, s
             errors[name] = "is above the supported maximum"
         elif value <= 0:
             errors[name] = "must be greater than 0"
+        elif value < MIN_RESISTANCE:
+            errors[name] = "is below the supported minimum"
 
     re = values["re"]
     if re is not None:
@@ -68,6 +71,8 @@ def parse_inputs(raw: Mapping[str, str]) -> tuple[BiasInputs | None, dict[str, s
             errors["re"] = "is above the supported maximum"
         elif re < 0:
             errors["re"] = "must be at least 0"
+        elif 0 < re < MIN_RESISTANCE:
+            errors["re"] = "is below the supported minimum"
 
     beta = values["beta"]
     if beta is not None:
@@ -103,8 +108,9 @@ class OperatingPoint:
 
 
 def solve_exact(inputs: BiasInputs) -> OperatingPoint:
-    vbb = inputs.vcc * inputs.r2 / (inputs.r1 + inputs.r2)
-    rb = inputs.r1 * inputs.r2 / (inputs.r1 + inputs.r2)
+    ratio = inputs.r2 / (inputs.r1 + inputs.r2)
+    vbb = inputs.vcc * ratio
+    rb = inputs.r1 * ratio
     ib = (vbb - inputs.vbe) / (rb + (inputs.beta + 1) * inputs.re)
     ic = inputs.beta * ib
     ie = ib + ic
@@ -190,8 +196,9 @@ class ComparisonRow:
 def solve_approximate(inputs: BiasInputs) -> OperatingPoint | None:
     if inputs.re == 0:
         return None
-    vbb = inputs.vcc * inputs.r2 / (inputs.r1 + inputs.r2)
-    rb = inputs.r1 * inputs.r2 / (inputs.r1 + inputs.r2)
+    ratio = inputs.r2 / (inputs.r1 + inputs.r2)
+    vbb = inputs.vcc * ratio
+    rb = inputs.r1 * ratio
     ie = (vbb - inputs.vbe) / inputs.re
     ic = ie
     ib = ie / inputs.beta
@@ -254,7 +261,8 @@ class BiasSolution:
 
 CUTOFF_MESSAGE = Message(
     "warning",
-    "VBB is at or below VBE, so the transistor is cut off: IC = 0.",
+    "VBB is at or below VBE, so the transistor is cut off: IC = 0. "
+    "Raise R2 or VCC to turn it on.",
 )
 
 
@@ -270,7 +278,14 @@ def solve(inputs: BiasInputs) -> BiasSolution:
     else:
         region, messages = classify(inputs, exact)
         if region == "saturation":
-            ic_sat, forced_beta = saturation_reference(inputs, exact)
+            if inputs.vcc > VCE_SAT_V:
+                ic_sat, forced_beta = saturation_reference(inputs, exact)
+            else:
+                messages = messages + (Message(
+                    "error",
+                    "VCC is at or below VCE(sat), so the saturation reference "
+                    "is undefined.",
+                ),)
 
     approximate = solve_approximate(inputs) if exact.ic > 0 else None
     if approximate is None:

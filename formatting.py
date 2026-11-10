@@ -6,15 +6,27 @@ PREFIXES = (
 )
 
 
+def _prefix(magnitude: float) -> tuple[float, str]:
+    for factor, prefix in PREFIXES:
+        if magnitude >= factor:
+            return factor, prefix
+    return 1e-9, "n"
+
+
 def si(value: float, unit: str) -> str:
     if not math.isfinite(value):
         return "n/a"
     if value == 0:
         return f"0 {unit}"
-    magnitude = abs(value)
-    factor, prefix = 1.0, ""
-    for factor_candidate, prefix_candidate in PREFIXES:
-        if magnitude >= factor_candidate:
-            factor, prefix = factor_candidate, prefix_candidate
-            break
-    return f"{value / factor:.3g} {prefix}{unit}"
+
+    factor, prefix = _prefix(abs(value))
+    scaled = value / factor
+    # A value like 999.999 Ω would round to "1e+03 Ω"; move up one prefix
+    # instead so it reads "1 kΩ".
+    if abs(scaled) >= 999.5:
+        for candidate, candidate_prefix in reversed(PREFIXES):
+            if candidate > factor:
+                factor, prefix = candidate, candidate_prefix
+                scaled = value / factor
+                break
+    return f"{scaled:.3g} {prefix}{unit}"

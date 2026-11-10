@@ -12,6 +12,10 @@ DC bias point.
 common-emitter ที่ไบอัสด้วยตัวแบ่งแรงดัน ตรวจสอบค่าที่กรอก เตือนเมื่อทรานซิสเตอร์
 ไม่อยู่ในย่าน forward-active และเทียบผลกับวิธีประมาณแบบตำราอีกวิธีหนึ่ง
 
+The page is a three-column dashboard — **Input Parameters**, **Circuit:
+Common-Emitter Amplifier**, **DC Bias Results** — with the exact-vs-approximate check and
+a *Week 2 Goal* card below it. One form, no JavaScript.
+
 ---
 
 ## Circuit
@@ -78,6 +82,7 @@ Skipped when `RE = 0` (division by zero) or when the transistor is cut off.
 ### Independent check
 
 The app puts the exact and approximate values side by side for `IB, IC, IE, VE, VC, VCE`
+— exact value, approximate value, absolute difference `Δ` and relative difference `Δ%` —
 and reports the largest relative difference:
 
 | Largest difference | Verdict |
@@ -89,17 +94,23 @@ and reports the largest relative difference:
 The two methods are independent: the exact one keeps the `(β + 1)·RE` term, the
 approximate one drops it. Agreement between them is the sanity check.
 
+Outside the forward-active region the approximate column is still shown but flagged
+**not applicable**, because the model only describes active-region operation.
+
 ## Inputs
 
 | Field | Meaning | Unit | Rule |
 |---|---|---|---|
 | `VCC` | supply voltage | V | > 0, ≤ 1000 |
-| `R1` | upper divider resistor | Ω | > 0, ≤ 10⁹ |
-| `R2` | lower divider resistor | Ω | > 0, ≤ 10⁹ |
-| `RC` | collector resistor | Ω | > 0, ≤ 10⁹ |
-| `RE` | emitter resistor | Ω | ≥ 0, ≤ 10⁹ |
+| `R1` | upper divider resistor | Ω | 10⁻⁶ … 10⁹ |
+| `R2` | lower divider resistor | Ω | 10⁻⁶ … 10⁹ |
+| `RC` | collector resistor | Ω | 10⁻⁶ … 10⁹ |
+| `RE` | emitter resistor | Ω | 0, or 10⁻⁶ … 10⁹ |
 | `β` | forward current gain | — | ≥ 1, ≤ 100000 |
 | `VBE` | base-emitter voltage | V | ≥ 0, < VCC |
+
+Resistances below 1 µΩ are rejected: there the ideal model divides by a number that
+underflows to zero, and the resulting currents stop meaning anything.
 
 Invalid input returns HTTP 400, shows the message next to the field, and keeps the raw
 values so the form can be corrected.
@@ -119,8 +130,8 @@ Values use engineering prefixes (`µA`, `mA`, `kΩ`, …) and three significant 
 
 | Region | Condition | Message |
 |---|---|---|
-| Cut-off | `VBB ≤ VBE` | warning; `IC = 0`, `VC = VCC`, comparison suppressed |
-| Saturation | `VCE < 0.2 V` | error; reports `IC(sat) = (VCC − 0.2) / (RC + RE)` and forced β |
+| Cut-off | `VBB ≤ VBE` | warning; `IC = 0`, `VC = VCC`, comparison suppressed, suggests raising R2 or VCC |
+| Saturation | `VCE < 0.2 V` | error; reports `IC(sat) = (VCC − 0.2) / (RC + RE)` and forced β (undefined if `VCC ≤ 0.2 V`) |
 | Near saturation | `0.2 V ≤ VCE < 1.0 V` | warning; Q-point is sensitive to β and VBE |
 | Active | `VCE ≥ 1.0 V` | info; transistor is in the forward-active region |
 
@@ -132,17 +143,20 @@ a valid bias point — read the message.
 Default form state: `VCC = 12 V`, `R1 = 47 kΩ`, `R2 = 10 kΩ`, `RC = 2.2 kΩ`,
 `RE = 1 kΩ`, `β = 150`, `VBE = 0.7 V`.
 
-| Quantity | Exact | Approximate | Δ% |
-|---|---|---|---|
-| VBB | 2.105263 V | 2.105263 V | — |
-| RB | 8245.614 Ω | 8245.614 Ω | — |
-| IB | 8.824501 µA | 9.368421 µA | +6.164 |
-| IC | 1.323675 mA | 1.405263 mA | +6.164 |
-| IE | 1.332500 mA | 1.405263 mA | +5.461 |
-| VE | 1.332500 V | 1.405263 V | +5.461 |
-| VC | 9.087915 V | 8.908421 V | −1.975 |
-| VCE | 7.755415 V | 7.503158 V | −3.253 |
-| P | 10.26565 mW | 10.54391 mW | — |
+| Quantity | Exact | Approximate | Δ | Δ% |
+|---|---|---|---|---|
+| VBB | 2.105263 V | 2.105263 V | — | — |
+| RB | 8245.614 Ω | 8245.614 Ω | — | — |
+| IB | 8.824501 µA | 9.368421 µA | +543.9 nA | +6.164 |
+| IC | 1.323675 mA | 1.405263 mA | +81.59 µA | +6.164 |
+| IE | 1.332500 mA | 1.405263 mA | +72.76 µA | +5.461 |
+| VE | 1.332500 V | 1.405263 V | +72.76 mV | +5.461 |
+| VC | 9.087915 V | 8.908421 V | −179.5 mV | −1.975 |
+| VCE | 7.755415 V | 7.503158 V | −252.3 mV | −3.253 |
+| P | 10.26565 mW | 10.54391 mW | — | — |
+
+The app renders these with SI prefixes and three significant figures, so `IB` shows as
+`8.82 µA` and the `IC` difference as `81.6 µA`.
 
 Region: **active** (`VCE = 7.76 V`). Largest difference 6.16 % → verdict **small**.
 
@@ -175,9 +189,10 @@ Open <http://127.0.0.1:5000>. If port 5000 is taken, run with an explicit port:
 .venv\Scripts\python.exe -m pytest -q
 ```
 
-55 tests: formulas against hand-calculated golden values, region boundaries, input
-validation, the comparison, SI formatting, and the four routes (GET, valid POST, invalid
-POST → 400, cut-off POST).
+71 tests: formulas against hand-calculated golden values, region boundaries, input
+validation (including a regression test for tiny-but-valid resistances), the comparison,
+SI formatting boundaries, and four route-level tests (GET, valid POST, invalid POST → 400,
+cut-off POST).
 
 ## Files
 

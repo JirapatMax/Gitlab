@@ -1,3 +1,4 @@
+import math
 from dataclasses import replace
 
 import pytest
@@ -26,6 +27,9 @@ def test_parses_valid_inputs():
     ("rc", "0", "must be greater than 0"),
     ("re", "-1", "must be at least 0"),
     ("re", "0", None),
+    ("r1", "1e-9", "is below the supported minimum"),
+    ("rc", "1e-7", "is below the supported minimum"),
+    ("re", "1e-9", "is below the supported minimum"),
     ("beta", "0.5", "must be at least 1"),
     ("beta", "100001", "is above the supported maximum"),
     ("vbe", "-0.1", "must be at least 0"),
@@ -185,3 +189,32 @@ def test_zero_emitter_resistor_does_not_crash():
     solution = solve(replace(GOLDEN, re=0.0))
     assert solution.exact.ic == pytest.approx(0.0255638297872, rel=REL)
     assert solution.approximate is None and solution.rows == ()
+
+
+def test_smallest_accepted_divider_does_not_crash():
+    tiny = replace(GOLDEN, r1=1e-6, r2=1e-6, re=0.0)
+    point = solve_exact(tiny)
+    assert point.vbb == pytest.approx(6.0, rel=REL)
+    assert point.rb == pytest.approx(5e-7, rel=REL)
+    assert math.isfinite(point.ic)
+    assert math.isfinite(solve(tiny).exact.ic)
+
+
+def test_cutoff_message_suggests_a_remedy():
+    solution = solve(replace(GOLDEN, r1=100000.0, r2=1000.0))
+    assert "Raise R2 or VCC" in solution.messages[0].text
+
+
+def test_comparison_delta_pct_is_none_when_reference_is_zero():
+    exact = replace(ACTIVE_POINT, ve=0.0)
+    rows, _, _ = compare(exact, ACTIVE_POINT)
+    ve_row = rows[3]
+    assert ve_row.key == "ve"
+    assert ve_row.delta_pct is None
+
+
+def test_supply_at_or_below_vce_sat_has_no_saturation_reference():
+    solution = solve(replace(GOLDEN, vcc=0.1, vbe=0.01, rc=100.0))
+    assert solution.region == "saturation"
+    assert solution.ic_sat is None and solution.forced_beta is None
+    assert [m.severity for m in solution.messages] == ["error", "error"]
