@@ -13,10 +13,26 @@ def client():
         yield test_client
 
 
-def test_get_renders_all_seven_inputs(client):
+def test_get_renders_lab_dashboard(client):
     body = client.get("/").get_data(as_text=True)
     for name in VALID:
         assert f'name="{name}"' in body
+    assert "Lab 02: BJT DC Bias Web App" in body
+    assert "ENG29 2121" in body
+    assert "Computer programming for Electrical Engineers" in body
+    assert "Input Parameters" in body
+    assert "Circuit: Common-Emitter Amplifier" in body
+    assert "DC Bias Results" in body
+    assert "Calculate DC Bias" in body
+    assert "Week 2 Goal" in body
+    assert "common-emitter amplifier with voltage-divider bias" in body
+
+
+def test_schematic_shows_si_formatted_component_values(client):
+    body = client.get("/").get_data(as_text=True)
+    assert "47 kΩ" in body
+    assert "2.2 kΩ" in body
+    assert "1 kΩ" in body
 
 
 def test_valid_post_shows_qpoint_with_units(client):
@@ -25,7 +41,22 @@ def test_valid_post_shows_qpoint_with_units(client):
     assert response.status_code == 200
     assert "1.32 mA" in body
     assert "7.76 V" in body
-    assert "Active" in body
+    assert "Active region operation OK" in body
+    assert "6.16" in body
+    assert "81.6 µA" in body
+
+
+def test_saturation_flags_approximation_inapplicable(client):
+    body = client.post("/", data={**VALID, "rc": "10000"}).get_data(as_text=True)
+    assert "not applicable" in body
+    assert "lightly loaded" not in body
+    assert "1.07 mA" in body
+
+
+def test_near_saturation_flags_approximation_inapplicable(client):
+    body = client.post("/", data={**VALID, "rc": "7600"}).get_data(as_text=True)
+    assert "not applicable" in body
+    assert "lightly loaded" not in body
 
 
 def test_invalid_post_returns_400_and_keeps_input(client):
