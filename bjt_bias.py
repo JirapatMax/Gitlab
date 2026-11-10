@@ -80,3 +80,40 @@ def parse_inputs(raw: Mapping[str, str]) -> tuple[BiasInputs | None, dict[str, s
     if errors:
         return None, errors
     return BiasInputs(**values), {}
+
+
+@dataclass(frozen=True)
+class OperatingPoint:
+    vbb: float
+    rb: float
+    ib: float
+    ic: float
+    ie: float
+    ve: float
+    vc: float
+    vce: float
+    p_transistor: float
+    model: str
+
+
+def solve_exact(inputs: BiasInputs) -> OperatingPoint:
+    vbb = inputs.vcc * inputs.r2 / (inputs.r1 + inputs.r2)
+    rb = inputs.r1 * inputs.r2 / (inputs.r1 + inputs.r2)
+    ib = (vbb - inputs.vbe) / (rb + (inputs.beta + 1) * inputs.re)
+    ic = inputs.beta * ib
+    ie = ib + ic
+    ve = ie * inputs.re
+    vc = inputs.vcc - ic * inputs.rc
+    vce = vc - ve
+    return OperatingPoint(
+        vbb=vbb,
+        rb=rb,
+        ib=ib,
+        ic=ic,
+        ie=ie,
+        ve=ve,
+        vc=vc,
+        vce=vce,
+        p_transistor=vce * ic,
+        model="exact",
+    )
