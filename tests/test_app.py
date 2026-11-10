@@ -30,9 +30,11 @@ def test_get_renders_lab_dashboard(client):
 
 def test_schematic_shows_si_formatted_component_values(client):
     body = client.get("/").get_data(as_text=True)
-    assert "47 kΩ" in body
+    assert "100 kΩ" in body
+    assert "22 kΩ" in body
     assert "2.2 kΩ" in body
     assert "1 kΩ" in body
+    assert "β = 100" in body
 
 
 def test_valid_post_shows_qpoint_with_units(client):

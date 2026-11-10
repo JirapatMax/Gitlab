@@ -5,8 +5,8 @@ from formatting import si
 
 app = Flask(__name__)
 
-DEFAULTS = {"vcc": "12", "r1": "47000", "r2": "10000", "rc": "2200",
-            "re": "1000", "beta": "150", "vbe": "0.7"}
+DEFAULTS = {"vcc": "12", "r1": "100000", "r2": "22000", "rc": "2200",
+            "re": "1000", "beta": "100", "vbe": "0.7"}
 
 SCHEMATIC_FIELDS = (("vcc", "V"), ("r1", "Ω"), ("r2", "Ω"), ("rc", "Ω"),
                     ("re", "Ω"), ("beta", ""))

@@ -140,8 +140,11 @@ a valid bias point — read the message.
 
 ## Worked example
 
-Default form state: `VCC = 12 V`, `R1 = 47 kΩ`, `R2 = 10 kΩ`, `RC = 2.2 kΩ`,
-`RE = 1 kΩ`, `β = 150`, `VBE = 0.7 V`.
+The form opens with the lab's example circuit: `VCC = 12 V`, `R1 = 100 kΩ`, `R2 = 22 kΩ`,
+`RC = 2.2 kΩ`, `RE = 1 kΩ`, `β = 100`, `VBE = 0.7 V` — the labels drawn on the schematic.
+
+The hand-checked case below uses `R1 = 47 kΩ`, `R2 = 10 kΩ`, `β = 150` because it divides
+evenly enough to verify by hand:
 
 | Quantity | Exact | Approximate | Δ | Δ% |
 |---|---|---|---|---|
