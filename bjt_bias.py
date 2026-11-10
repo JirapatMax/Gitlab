@@ -6,6 +6,9 @@ MAX_VCC = 1000.0
 MAX_RESISTANCE = 1e9
 MAX_BETA = 1e5
 
+VCE_SAT_V = 0.2
+VCE_NEAR_SAT_V = 1.0
+
 FIELD_NAMES = ("vcc", "r1", "r2", "rc", "re", "beta", "vbe")
 
 
@@ -117,3 +120,44 @@ def solve_exact(inputs: BiasInputs) -> OperatingPoint:
         p_transistor=vce * ic,
         model="exact",
     )
+
+
+@dataclass(frozen=True)
+class Message:
+    severity: str
+    text: str
+
+
+def clamp_cutoff(inputs: BiasInputs, point: OperatingPoint) -> OperatingPoint:
+    return OperatingPoint(
+        vbb=point.vbb,
+        rb=point.rb,
+        ib=0.0,
+        ic=0.0,
+        ie=0.0,
+        ve=0.0,
+        vc=inputs.vcc,
+        vce=inputs.vcc,
+        p_transistor=0.0,
+        model=point.model,
+    )
+
+
+def classify(inputs: BiasInputs, point: OperatingPoint) -> tuple[str, tuple[Message, ...]]:
+    if point.vce < VCE_SAT_V:
+        return "saturation", (Message(
+            "error",
+            "Transistor is in saturation: VCE is below VCE(sat) = 0.2 V, "
+            "so the linear-region values are not valid.",
+        ),)
+    if point.vce < VCE_NEAR_SAT_V:
+        return "near-saturation", (Message(
+            "warning",
+            "VCE is close to saturation; the Q-point is sensitive to beta and VBE.",
+        ),)
+    return "active", (Message("info", "Transistor is in the forward-active region."),)
+
+
+def saturation_reference(inputs: BiasInputs, point: OperatingPoint) -> tuple[float, float]:
+    ic_sat = (inputs.vcc - VCE_SAT_V) / (inputs.rc + inputs.re)
+    return ic_sat, ic_sat / point.ib
