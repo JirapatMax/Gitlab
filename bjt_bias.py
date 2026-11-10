@@ -9,6 +9,9 @@ MAX_BETA = 1e5
 VCE_SAT_V = 0.2
 VCE_NEAR_SAT_V = 1.0
 
+DELTA_NEGLIGIBLE_PCT = 2.0
+DELTA_ACCEPTABLE_PCT = 10.0
+
 FIELD_NAMES = ("vcc", "r1", "r2", "rc", "re", "beta", "vbe")
 
 
@@ -161,3 +164,75 @@ def classify(inputs: BiasInputs, point: OperatingPoint) -> tuple[str, tuple[Mess
 def saturation_reference(inputs: BiasInputs, point: OperatingPoint) -> tuple[float, float]:
     ic_sat = (inputs.vcc - VCE_SAT_V) / (inputs.rc + inputs.re)
     return ic_sat, ic_sat / point.ib
+
+
+COMPARISON_ROWS = (
+    ("ib", "IB", "A"),
+    ("ic", "IC", "A"),
+    ("ie", "IE", "A"),
+    ("ve", "VE", "V"),
+    ("vc", "VC", "V"),
+    ("vce", "VCE", "V"),
+)
+
+
+@dataclass(frozen=True)
+class ComparisonRow:
+    key: str
+    label: str
+    unit: str
+    exact: float
+    approximate: float
+    delta: float
+    delta_pct: float | None
+
+
+def solve_approximate(inputs: BiasInputs) -> OperatingPoint | None:
+    if inputs.re == 0:
+        return None
+    vbb = inputs.vcc * inputs.r2 / (inputs.r1 + inputs.r2)
+    rb = inputs.r1 * inputs.r2 / (inputs.r1 + inputs.r2)
+    ie = (vbb - inputs.vbe) / inputs.re
+    ic = ie
+    ib = ie / inputs.beta
+    ve = ie * inputs.re
+    vc = inputs.vcc - ic * inputs.rc
+    vce = vc - ve
+    return OperatingPoint(
+        vbb=vbb,
+        rb=rb,
+        ib=ib,
+        ic=ic,
+        ie=ie,
+        ve=ve,
+        vc=vc,
+        vce=vce,
+        p_transistor=vce * ic,
+        model="approximate",
+    )
+
+
+def comparison_verdict(max_delta_pct: float | None) -> str | None:
+    if max_delta_pct is None:
+        return None
+    if max_delta_pct <= DELTA_NEGLIGIBLE_PCT:
+        return "negligible"
+    if max_delta_pct <= DELTA_ACCEPTABLE_PCT:
+        return "small"
+    return "large"
+
+
+def compare(
+    exact: OperatingPoint,
+    approximate: OperatingPoint,
+) -> tuple[tuple[ComparisonRow, ...], float | None, str | None]:
+    rows = []
+    for key, label, unit in COMPARISON_ROWS:
+        exact_value = getattr(exact, key)
+        approximate_value = getattr(approximate, key)
+        delta = approximate_value - exact_value
+        delta_pct = None if exact_value == 0 else delta / exact_value * 100
+        rows.append(ComparisonRow(key, label, unit, exact_value, approximate_value, delta, delta_pct))
+    magnitudes = [abs(row.delta_pct) for row in rows if row.delta_pct is not None]
+    max_delta_pct = max(magnitudes) if magnitudes else None
+    return tuple(rows), max_delta_pct, comparison_verdict(max_delta_pct)

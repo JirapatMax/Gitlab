@@ -2,8 +2,8 @@ from dataclasses import replace
 
 import pytest
 from bjt_bias import (VCE_NEAR_SAT_V, VCE_SAT_V, BiasInputs, classify,
-                      clamp_cutoff, parse_inputs, saturation_reference,
-                      solve_exact)
+                      clamp_cutoff, compare, comparison_verdict, parse_inputs,
+                      saturation_reference, solve_approximate, solve_exact)
 
 VALID = {"vcc": "12", "r1": "47000", "r2": "10000", "rc": "2200",
          "re": "1000", "beta": "150", "vbe": "0.7"}
@@ -115,3 +115,39 @@ def test_saturation_reference():
     ic_sat, forced_beta = saturation_reference(replace(GOLDEN, rc=10000.0), point)
     assert ic_sat == pytest.approx(0.00107272727273, rel=REL)
     assert forced_beta == pytest.approx(121.562365225, rel=REL)
+
+
+def test_approximate_matches_hand_calculation():
+    p = solve_approximate(GOLDEN)
+    assert p.vbb == pytest.approx(2.10526315789, rel=REL)
+    assert p.rb == pytest.approx(8245.61403509, rel=REL)
+    assert p.ib == pytest.approx(9.36842105263e-06, rel=REL)
+    assert p.ic == pytest.approx(0.00140526315789, rel=REL)
+    assert p.ve == pytest.approx(1.40526315789, rel=REL)
+    assert p.vc == pytest.approx(8.90842105263, rel=REL)
+    assert p.vce == pytest.approx(7.50315789474, rel=REL)
+    assert p.p_transistor == pytest.approx(0.0105439113573, rel=REL)
+    assert p.model == "approximate"
+
+
+def test_approximate_is_none_without_emitter_resistor():
+    assert solve_approximate(replace(GOLDEN, re=0.0)) is None
+
+
+def test_comparison_rows_and_verdict():
+    rows, max_delta, verdict = compare(solve_exact(GOLDEN), solve_approximate(GOLDEN))
+    assert [row.key for row in rows] == ["ib", "ic", "ie", "ve", "vc", "vce"]
+    ic_row = rows[1]
+    assert ic_row.exact == pytest.approx(0.00132367522309, rel=REL)
+    assert ic_row.approximate == pytest.approx(0.00140526315789, rel=REL)
+    assert ic_row.delta_pct == pytest.approx(6.16374269006, rel=REL)
+    assert max_delta == pytest.approx(6.16374269006, rel=REL)
+    assert verdict == "small"
+
+
+@pytest.mark.parametrize("value,expected", [
+    (None, None), (0.0, "negligible"), (1.99, "negligible"), (2.0, "negligible"),
+    (2.001, "small"), (10.0, "small"), (10.01, "large"), (250.0, "large"),
+])
+def test_comparison_verdict_boundaries(value, expected):
+    assert comparison_verdict(value) == expected
