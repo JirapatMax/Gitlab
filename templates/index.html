@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+
+{% block content %}
+<header class="hero">
+  <h1>BJT Common-Emitter DC Bias</h1>
+  <p>Voltage-divider bias. The exact Thevenin operating point is reported, then checked
+     against the textbook approximation that ignores base current.</p>
+</header>
+
+<div class="layout">
+  <section class="card">
+    <h2>Inputs</h2>
+
+    <svg class="schematic" viewBox="0 0 340 275" role="img"
+         aria-label="NPN common-emitter circuit with voltage-divider bias: R1 from VCC to the base, R2 from the base to ground, RC from VCC to the collector, RE from the emitter to ground, and transistor Q1.">
+      <g class="wire">
+        <line x1="60" y1="30" x2="290" y2="30"/>
+        <line x1="110" y1="30" x2="110" y2="55"/>
+        <line x1="110" y1="95" x2="110" y2="150"/>
+        <line x1="110" y1="190" x2="110" y2="225"/>
+        <line x1="110" y1="125" x2="155" y2="125"/>
+        <line x1="155" y1="105" x2="155" y2="145"/>
+        <line x1="155" y1="112" x2="195" y2="92"/>
+        <line x1="195" y1="92" x2="195" y2="85"/>
+        <line x1="195" y1="45" x2="195" y2="30"/>
+        <line x1="155" y1="138" x2="195" y2="158"/>
+        <line x1="195" y1="158" x2="195" y2="180"/>
+        <line x1="195" y1="220" x2="195" y2="245"/>
+      </g>
+      <g class="component">
+        <rect x="101" y="55" width="18" height="40"/>
+        <rect x="101" y="150" width="18" height="40"/>
+        <rect x="186" y="45" width="18" height="40"/>
+        <rect x="186" y="180" width="18" height="40"/>
+        <polygon points="195,158 185,149 190,162"/>
+      </g>
+      <g class="ground">
+        <line x1="100" y1="225" x2="120" y2="225"/>
+        <line x1="104" y1="231" x2="116" y2="231"/>
+        <line x1="108" y1="237" x2="112" y2="237"/>
+        <line x1="185" y1="245" x2="205" y2="245"/>
+        <line x1="189" y1="251" x2="201" y2="251"/>
+        <line x1="193" y1="257" x2="197" y2="257"/>
+      </g>
+      <g class="label">
+        <text x="290" y="22" text-anchor="end">VCC</text>
+        <text x="80" y="80">R1</text>
+        <text x="80" y="175">R2</text>
+        <text x="212" y="70">RC</text>
+        <text x="212" y="205">RE</text>
+        <text x="205" y="135">Q1</text>
+      </g>
+    </svg>
+
+    <form method="post" action="/">
+      {% set fields = [("vcc", "VCC", "V"), ("r1", "R1", "Ω"), ("r2", "R2", "Ω"),
+                       ("rc", "RC", "Ω"), ("re", "RE", "Ω"), ("beta", "β", ""),
+                       ("vbe", "VBE", "V")] %}
+      <div class="fields">
+        {% for name, label, unit in fields %}
+        <div class="field">
+          <label for="{{ name }}">{{ label }}{% if unit %} ({{ unit }}){% endif %}</label>
+          <input type="number" step="any" id="{{ name }}" name="{{ name }}" value="{{ raw[name] }}">
+          {% if errors.get(name) %}<p class="error">{{ errors[name] }}</p>{% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      <div class="actions">
+        <button type="submit">Calculate</button>
+        <a class="reset" href="/">Reset</a>
+      </div>
+    </form>
+  </section>
+
+  {% if solution %}
+  {% set labels = {"active": "Active", "near-saturation": "Near saturation",
+                   "cut-off": "Cut-off", "saturation": "Saturation"} %}
+  {% set verdicts = {
+       "negligible": "Base-current loading is negligible here; the approximation is fine.",
+       "small": "Base current shifts the Q-point by a few percent. That shift is exactly what the exact solution corrects for.",
+       "large": "The divider is too lightly loaded for the approximation; use the exact value."} %}
+  {% set qpoints = [("VBB", solution.exact.vbb, "V"), ("RB", solution.exact.rb, "Ω"),
+                    ("IB", solution.exact.ib, "A"), ("IC", solution.exact.ic, "A"),
+                    ("IE", solution.exact.ie, "A"), ("VE", solution.exact.ve, "V"),
+                    ("VC", solution.exact.vc, "V"), ("VCE", solution.exact.vce, "V"),
+                    ("P", solution.exact.p_transistor, "W")] %}
+
+  <section class="card">
+    <h2>Operating point</h2>
+    <p class="pill pill-{{ solution.region }}">{{ labels[solution.region] }}</p>
+
+    <table class="qpoint">
+      <tbody>
+        {% for qlabel, qvalue, qunit in qpoints %}
+        <tr><th>{{ qlabel }}</th><td>{{ qvalue|si(qunit) }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    {% for message in solution.messages %}
+    <p class="message message-{{ message.severity }}">{{ message.text }}</p>
+    {% endfor %}
+
+    {% if solution.ic_sat is not none %}
+    <p class="message message-error">
+      Reference values: IC(sat) = {{ solution.ic_sat|si("A") }},
+      forced β = {{ "%.3g"|format(solution.forced_beta) }}.
+    </p>
+    {% endif %}
+  </section>
+
+  <section class="card">
+    <h2>Independent check</h2>
+    {% if solution.rows %}
+    <p class="muted">
+      Exact (Thevenin) against the approximation that sets I<sub>B</sub> to zero.
+      Largest difference: <strong>{{ "%.2f"|format(solution.max_delta_pct) }}%</strong>.
+    </p>
+    <table class="comparison">
+      <thead>
+        <tr><th>Quantity</th><th>Exact</th><th>Approximate</th><th>Δ%</th></tr>
+      </thead>
+      <tbody>
+        {% for row in solution.rows %}
+        <tr>
+          <th>{{ row.label }}</th>
+          <td>{{ row.exact|si(row.unit) }}</td>
+          <td>{{ row.approximate|si(row.unit) }}</td>
+          <td>{% if row.delta_pct is none %}n/a{% else %}{{ "%+.2f"|format(row.delta_pct) }}%{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <p class="verdict">{{ verdicts[solution.verdict] }}</p>
+    {% else %}
+    <p class="muted">No comparison is available for this operating point:
+       the approximate model needs an emitter resistor and a conducting transistor.</p>
+    {% endif %}
+  </section>
+  {% endif %}
+</div>
+{% endblock %}
