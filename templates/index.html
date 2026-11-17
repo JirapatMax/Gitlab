@@ -131,29 +131,90 @@
        against β variation.</p>
 
     {% elif mode == 'fixed' %}
-    <div class="circuit-text">
-      <pre class="circuit-ascii">VCC ──┬── RC ── Collector
-      │          Q1 (NPN)
-      RB ─────── Base
-      │          Emitter ── GND
-      GND</pre>
-      <p>RB feeds the base from VCC and the emitter is tied directly to ground.</p>
-    </div>
-    <p class="caption">Fixed bias &mdash; IB = (VCC − VBE) / RB. Only RB is added to the
-       shared inputs.</p>
+    <svg class="schematic" viewBox="0 0 360 295" role="img"
+         aria-label="NPN common-emitter amplifier with fixed bias: RB from VCC to the base, the emitter tied directly to ground, RC from VCC to the collector, and transistor Q1.">
+      <g class="wire">
+        <line x1="70" y1="30" x2="290" y2="30"/>
+        <line x1="120" y1="30" x2="120" y2="52"/>
+        <line x1="120" y1="100" x2="120" y2="150"/>
+        <line x1="120" y1="150" x2="172" y2="150"/>
+        <line x1="204" y1="30" x2="204" y2="52"/>
+        <line x1="204" y1="100" x2="204" y2="110"/>
+        <line x1="204" y1="110" x2="172" y2="138"/>
+        <line x1="172" y1="162" x2="204" y2="190"/>
+        <line x1="204" y1="190" x2="204" y2="226"/>
+      </g>
+      <g class="component">
+        <rect x="112" y="52" width="16" height="48"/>
+        <rect x="196" y="52" width="16" height="48"/>
+        <circle cx="188" cy="150" r="42"/>
+        <line x1="172" y1="132" x2="172" y2="168" class="base-bar"/>
+        <polygon points="184,172 175,166 181,177" class="arrow"/>
+      </g>
+      <g class="ground">
+        <line x1="196" y1="226" x2="212" y2="226"/>
+        <line x1="199" y1="231" x2="209" y2="231"/>
+        <line x1="202" y1="236" x2="206" y2="236"/>
+      </g>
+      <g class="node"><circle cx="120" cy="150" r="3"/></g>
+      <g class="label">
+        <text x="290" y="22" text-anchor="end" class="label-strong">VCC = {{ schematic.vcc }}</text>
+        <text x="104" y="70" text-anchor="end">RB</text>
+        <text x="104" y="86" text-anchor="end" class="label-value">{{ schematic.rb }}</text>
+        <text x="220" y="70">RC</text>
+        <text x="220" y="86" class="label-value">{{ schematic.rc }}</text>
+        <text x="236" y="144" class="label-strong">Q1</text>
+        <text x="236" y="160">NPN</text>
+        <text x="236" y="176" class="label-value">β = {{ schematic.beta }}</text>
+      </g>
+    </svg>
+    <p class="caption">Fixed bias &mdash; RB feeds the base from VCC and the emitter is tied
+       directly to ground. IB = (VCC − VBE) / RB.</p>
 
     {% else %}
-    <div class="circuit-text">
-      <pre class="circuit-ascii">VCC ──┬── RC ── Collector
-      │          Q1 (NPN)
-      RB ─────── Base
-      │          Emitter ── RE ── GND
-      GND</pre>
-      <p>RB feeds the base from VCC; RE lifts the emitter above ground for
-         DC negative feedback.</p>
-    </div>
-    <p class="caption">Emitter bias &mdash; IB = (VCC − VBE) / [RB + (β + 1)·RE].
-       RB and RE are used.</p>
+    <svg class="schematic" viewBox="0 0 360 295" role="img"
+         aria-label="NPN common-emitter amplifier with emitter bias: RB from VCC to the base, RE from the emitter to ground, RC from VCC to the collector, and transistor Q1.">
+      <g class="wire">
+        <line x1="70" y1="30" x2="290" y2="30"/>
+        <line x1="120" y1="30" x2="120" y2="52"/>
+        <line x1="120" y1="100" x2="120" y2="150"/>
+        <line x1="120" y1="150" x2="172" y2="150"/>
+        <line x1="204" y1="30" x2="204" y2="52"/>
+        <line x1="204" y1="100" x2="204" y2="110"/>
+        <line x1="204" y1="110" x2="172" y2="138"/>
+        <line x1="172" y1="162" x2="204" y2="190"/>
+        <line x1="204" y1="190" x2="204" y2="200"/>
+        <line x1="204" y1="248" x2="204" y2="266"/>
+      </g>
+      <g class="component">
+        <rect x="112" y="52" width="16" height="48"/>
+        <rect x="196" y="52" width="16" height="48"/>
+        <rect x="196" y="200" width="16" height="48"/>
+        <circle cx="188" cy="150" r="42"/>
+        <line x1="172" y1="132" x2="172" y2="168" class="base-bar"/>
+        <polygon points="184,172 175,166 181,177" class="arrow"/>
+      </g>
+      <g class="ground">
+        <line x1="196" y1="266" x2="212" y2="266"/>
+        <line x1="199" y1="271" x2="209" y2="271"/>
+        <line x1="202" y1="276" x2="206" y2="276"/>
+      </g>
+      <g class="node"><circle cx="120" cy="150" r="3"/></g>
+      <g class="label">
+        <text x="290" y="22" text-anchor="end" class="label-strong">VCC = {{ schematic.vcc }}</text>
+        <text x="104" y="70" text-anchor="end">RB</text>
+        <text x="104" y="86" text-anchor="end" class="label-value">{{ schematic.rb }}</text>
+        <text x="220" y="70">RC</text>
+        <text x="220" y="86" class="label-value">{{ schematic.rc }}</text>
+        <text x="220" y="218">RE</text>
+        <text x="220" y="234" class="label-value">{{ schematic.re }}</text>
+        <text x="236" y="144" class="label-strong">Q1</text>
+        <text x="236" y="160">NPN</text>
+        <text x="236" y="176" class="label-value">β = {{ schematic.beta }}</text>
+      </g>
+    </svg>
+    <p class="caption">Emitter bias &mdash; RB feeds the base from VCC and RE lifts the emitter
+       above ground for DC negative feedback. IB = (VCC − VBE) / [RB + (β + 1)·RE].</p>
     {% endif %}
   </section>
 

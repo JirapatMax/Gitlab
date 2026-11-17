@@ -26,8 +26,8 @@ DEFAULTS = {
     "re": "1000", "rc": "2200", "beta": "100", "vbe": "0.7",
 }
 
-SCHEMATIC_FIELDS = (("vcc", "V"), ("r1", "Ω"), ("r2", "Ω"), ("rc", "Ω"),
-                    ("re", "Ω"), ("beta", ""))
+SCHEMATIC_FIELDS = (("vcc", "V"), ("r1", "Ω"), ("r2", "Ω"), ("rb", "Ω"),
+                    ("rc", "Ω"), ("re", "Ω"), ("beta", ""))
 
 
 @app.template_filter("si")
