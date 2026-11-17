@@ -31,7 +31,7 @@ AC/transient หรือ bypass capacitor ไม่มี unittest ใหม่
    `1 kΩ = 1000 Ω`) แล้วกด **Calculate DC Bias**
 3. การ์ด **Circuit: Common-Emitter Amplifier** จะแสดงภาพวงจร SVG ของโหมดนั้น
    พร้อมค่าตัวต้านทานที่กรอก (Divider มี R1/R2/RE, Fixed มี RB และ emitter
-   ต่อกราวด์ตรง ๆ, Emitter มี RB และ RE) — ใช้สไตล์เดียวกับภาพเดิมของ Lab 02
+   ต่อกราวด์ตรง ๆ, Emitter มี RB และ RE) — ใช้สไตล์การ์ดสีเดียวกันทั้ง 3 แบบ
 4. ผลและข้อความเตือนจะระบุโหมดที่เลือกเสมอ และถ้าอินพุตผิด ช่องผลจะเป็น
    `—` ทั้งหมด ไม่โชว์ผลของรอบก่อน
 
@@ -89,16 +89,59 @@ py -m venv .venv
 71 tests เดิมจาก Lab 02 ยังผ่านทั้งหมด (สูตร, region, validation, comparison,
 SI formatting และ route-level) — เป็นหลักฐานว่าโหมด Divider ไม่เสียจากการเพิ่มวงจรใหม่
 
-## Browser acceptance
+## Browser acceptance (A1–A5)
 
-ตาราง A1–A5 พร้อมค่าอ้างอิงอิสระ ผลที่เห็นจริง วิธีตรวจ สถานะ และภาพหน้าจอ
+ค่าอ้างอิงอิสระคำนวณด้วย [`docs/reference_calculation.py`](docs/reference_calculation.py)
+ซึ่ง **ไม่ import** `app.py`, `bjt_bias.py` หรือ `dc_bias.py` รายละเอียดและการทวนผล
 อยู่ใน [`docs/validation.md`](docs/validation.md)
-ค่าอ้างอิงคำนวณแยกด้วย [`docs/reference_calculation.py`](docs/reference_calculation.py)
-ซึ่งไม่ import โมดูลของแอปเลย
 
-รอบที่บันทึกไว้ใช้ **OpenCode Browser** (Playwright MCP ไม่ได้ตั้งค่าในเครื่อง
-จึงระบุว่า NOT RUN) ตรวจครบ 5 กรณี ผล IC/VCE ทุกกรณีอยู่ในเกณฑ์
-0.01 mA / 0.02 V และ A5 แสดงข้อความ `must be greater than 0` โดยผลเป็น `—` ทั้งหมด
+ใช้ร่วมกันทุกกรณี: `VCC = 12 V`, `RC = 2.2 kΩ`, `β = 100`, `VBE = 0.70 V`<br>
+เกณฑ์ผ่าน: `|ΔIC| ≤ 0.01 mA` และ `|ΔVCE| ≤ 0.02 V` เมื่อเทียบค่าที่หน้าเว็บแสดง
+(3 significant figures) กับค่าอ้างอิงที่ยังไม่ปัดเศษ
+
+| กรณี | อินพุตที่กรอกจริง | ค่าคาดหมาย (มีหน่วย) | ผลจริงที่เห็นบนหน้าเว็บ (มีหน่วย) | วิธีตรวจ | สถานะ |
+|---|---|---|---|---|---|
+| **A1 · Divider (โหมดเดิม)** | `VCC=12, R1=100000, R2=22000, RC=2200, RE=1000, β=100, VBE=0.7` | `IC=1.229858 mA`, `VCE=8.052155 V` | `IC = 1.23 mA`, `VCE = 8.05 V`, `VBB = 2.16 V`, `IB = 12.3 µA`; `Active region approximation OK` | OpenCode Browser | **PASS** |
+| **A2 · Fixed** | `VCC=12, RB=1000000, RC=2200, β=100, VBE=0.7` (**ไม่มีช่อง RE**) | `IC=1.130000 mA`, `VCE=9.514000 V` | `IC = 1.13 mA`, `VCE = 9.51 V`, `VE = 0 V`, `IB = 11.3 µA`; `Forward-active region OK` | OpenCode Browser | **PASS** |
+| **A3 · Emitter** | `VCC=12, RB=1000000, RC=2200, RE=1000, β=100, VBE=0.7` | `IC=1.026340 mA`, `VCE=8.705450 V` | `IC = 1.03 mA`, `VCE = 8.71 V`, `VE = 1.04 V`, `IB = 10.3 µA`; `Forward-active region OK` | OpenCode Browser | **PASS** |
+| **A4 · เปลี่ยนค่าเดียวจาก A3** | Emitter · เหมือน A3 ทุกประการ เปลี่ยนเฉพาะ `RE=2000` | ทำนายว่า **IC ลดลง** เพราะ `(β+1)·RE` ในตัวหารเพิ่มขึ้น; ค่าอ้างอิง `IC=0.940100 mA`, `VCE=8.032779 V` | `IC = 940 µA` (ลดจาก `1.03 mA`), `IB = 9.4 µA` (ลดจาก `10.3 µA`), `VCE = 8.03 V` → ทิศทางตรงตามทำนาย | OpenCode Browser | **PASS** |
+| **A5 · อินพุตผิด** | Fixed · `RB=0` (ที่เหลือเหมือน A2) | มีข้อความให้แก้ RB, เว็บไม่ล่ม, ไม่โชว์ผลเดิมเป็นผลรอบนี้ | ข้อความถัดจากช่อง RB: `must be greater than 0`; status `Check the highlighted inputs`; ช่องผลทั้ง 7 ช่องเป็น `—` หมด | OpenCode Browser | **PASS** |
+
+ตรวจเกณฑ์ตัวเลขเพิ่มได้:
+
+| กรณี | \|ΔIC\| (mA) | \|ΔVCE\| (V) | ผล |
+|---|---:|---:|---|
+| A1 | 0.000142 | 0.002155 | ผ่าน |
+| A2 | 0.000000 | 0.004000 | ผ่าน |
+| A3 | 0.003660 | 0.004550 | ผ่าน |
+| A4 | 0.000100 | 0.002779 | ผ่าน |
+
+### หลักฐานจากหน้าเว็บ
+
+ข้อความผลด้านบนคัดมาจาก accessibility snapshot ของหน้าเว็บหลังกรอกฟอร์มและกด
+**Calculate DC Bias** จริง ไม่ได้อ่านจากโค้ด และมีภาพหน้าจอแนบอย่างน้อย 1 กรณี:
+
+- **A3** — เห็น `IC = 1.03 mA`, `VCE = 8.71 V`:
+
+  ![A3 Emitter Bias](docs/evidence/A3-emitter-bias.png)
+
+- **A5** — เห็น `must be greater than 0` และผล `—` ทุกช่อง:
+
+  ![A5 invalid RB](docs/evidence/A5-invalid-rb.png)
+
+- ภาพวงจรที่ใช้ตรวจทุกโหมด:
+  [Divider](docs/evidence/schematic-divider-bias.png) ·
+  [Fixed](docs/evidence/schematic-fixed-bias.png) ·
+  [Emitter](docs/evidence/schematic-emitter-bias.png)
+
+### เครื่องมือที่ใช้ / เหตุผลที่เปลี่ยน
+
+- ตรวจจริงด้วย **OpenCode Browser**: เปิด URL จริง ใช้ dropdown **Bias circuit →
+  Apply circuit** กรอกช่องในฟอร์มด้วยเครื่องมือ fill แล้วกด **Calculate DC Bias**
+- **Playwright MCP: NOT RUN** — ไม่ได้ตั้งค่า MCP server ในเครื่องนี้ จึงใช้
+  **OpenCode Browser** แทนตามเงื่อนไขในใบงาน (ให้คะแนนการตรวจผลเท่ากันทุกวิธี)
+- ไม่ได้ใช้ `curl` หรืออ่านโค้ดแทนการรันเบราว์เซอร์ และไม่พบ error/warning
+  ใน browser console ระหว่างรอบตรวจ
 
 ## Files
 
