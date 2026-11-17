@@ -8,10 +8,25 @@
   <circle cx="9" cy="6" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="8" cy="18" r="2"/>
   {%- elif name == "zap" -%}
   <polygon points="13 2 4 14 11 14 10 22 20 10 13 10 13 2"/>
+  {%- elif name == "route" -%}
+  <circle cx="5" cy="6" r="2"/><circle cx="19" cy="18" r="2"/>
+  <path d="M7 6 H13 Q16 6 16 9 V15"/><path d="M7 6 V12"/>
   {%- else -%}
   <line x1="6" y1="20" x2="6" y2="12"/><line x1="12" y1="20" x2="12" y2="5"/><line x1="18" y1="20" x2="18" y2="9"/>
   {%- endif -%}
 </svg>
+{%- endmacro %}
+
+{% macro field(name, label, unit, hint, raw, errors) -%}
+<div class="field">
+  <div class="field-row">
+    <label for="{{ name }}">{{ label }} <span class="hint">({{ hint }})</span></label>
+    <input type="number" step="any" id="{{ name }}" name="{{ name }}"
+           value="{{ raw.get(name, '') }}" autocomplete="off">
+    <span class="unit">{{ unit }}</span>
+  </div>
+  {% if errors.get(name) %}<p class="error">{{ errors[name] }}</p>{% endif %}
+</div>
 {%- endmacro %}
 
 {% block content %}
@@ -20,34 +35,41 @@
     <h1>Lab 02: BJT DC Bias Web App</h1>
     <span class="course">Computer programming for Electrical Engineers</span>
   </div>
-  <p class="subtitle">ENG29 2121 &mdash; Common Emitter (Voltage Divider Bias)</p>
+  <p class="subtitle">ENG29 2121 &mdash; Lab 03 extension: three bias circuits checked through the browser</p>
 </header>
+
+<form class="mode-bar" method="get" action="/">
+  <label for="mode">Bias circuit</label>
+  <select id="mode" name="mode">
+    <option value="divider" {% if mode == 'divider' %}selected{% endif %}>Voltage Divider Bias (Lab 02 circuit)</option>
+    <option value="fixed" {% if mode == 'fixed' %}selected{% endif %}>Fixed Bias</option>
+    <option value="emitter" {% if mode == 'emitter' %}selected{% endif %}>Emitter Bias (single supply)</option>
+  </select>
+  <button type="submit" class="secondary">Apply circuit</button>
+  <span class="mode-note">{{ mode_label }}</span>
+</form>
+{% if errors.get('mode') %}<p class="error mode-error">{{ errors['mode'] }}</p>{% endif %}
 
 <div class="grid">
   <section class="card input-card">
     <h2>{{ icon("sliders") }}Input Parameters</h2>
 
     <form method="post" action="/">
-      {% set fields = [
-        ("vcc", "VCC", "V", "Supply Voltage"),
-        ("r1", "R1", "Ω", "Upper Divider"),
-        ("r2", "R2", "Ω", "Lower Divider"),
-        ("rc", "RC", "Ω", "Collector Resistor"),
-        ("re", "RE", "Ω", "Emitter Resistor"),
-        ("beta", "β", "", "Current Gain"),
-        ("vbe", "VBE", "V", "Base–Emitter Voltage")] %}
+      <input type="hidden" name="mode" value="{{ mode }}">
       <div class="fields">
-        {% for name, label, unit, hint in fields %}
-        <div class="field">
-          <div class="field-row">
-            <label for="{{ name }}">{{ label }} <span class="hint">({{ hint }})</span></label>
-            <input type="number" step="any" id="{{ name }}" name="{{ name }}"
-                   value="{{ raw[name] }}" autocomplete="off">
-            <span class="unit">{{ unit }}</span>
-          </div>
-          {% if errors.get(name) %}<p class="error">{{ errors[name] }}</p>{% endif %}
-        </div>
-        {% endfor %}
+        {{ field('vcc', 'VCC', 'V', 'Supply Voltage', raw, errors) }}
+        {% if mode == 'divider' %}
+          {{ field('r1', 'R1', 'Ω', 'Upper Divider', raw, errors) }}
+          {{ field('r2', 'R2', 'Ω', 'Lower Divider', raw, errors) }}
+        {% elif mode in ('fixed', 'emitter') %}
+          {{ field('rb', 'RB', 'Ω', 'Base Resistor (VCC → Base)', raw, errors) }}
+        {% endif %}
+        {{ field('rc', 'RC', 'Ω', 'Collector Resistor', raw, errors) }}
+        {% if mode in ('divider', 'emitter') %}
+          {{ field('re', 'RE', 'Ω', 'Emitter Resistor', raw, errors) }}
+        {% endif %}
+        {{ field('beta', 'β', '', 'Current Gain', raw, errors) }}
+        {{ field('vbe', 'VBE', 'V', 'Base–Emitter Voltage', raw, errors) }}
       </div>
       <button type="submit">Calculate DC Bias</button>
     </form>
@@ -56,6 +78,7 @@
   <section class="card circuit-card">
     <h2>{{ icon("zap") }}Circuit: Common-Emitter Amplifier</h2>
 
+    {% if mode == 'divider' %}
     <svg class="schematic" viewBox="0 0 360 295" role="img"
          aria-label="NPN common-emitter amplifier with voltage-divider bias: R1 from VCC to the base, R2 from the base to ground, RC from VCC to the collector, RE from the emitter to ground, and transistor Q1.">
       <g class="wire">
@@ -88,9 +111,7 @@
         <line x1="199" y1="271" x2="209" y2="271"/>
         <line x1="202" y1="276" x2="206" y2="276"/>
       </g>
-      <g class="node">
-        <circle cx="120" cy="150" r="3"/>
-      </g>
+      <g class="node"><circle cx="120" cy="150" r="3"/></g>
       <g class="label">
         <text x="290" y="22" text-anchor="end" class="label-strong">VCC = {{ schematic.vcc }}</text>
         <text x="104" y="70" text-anchor="end">R1</text>
@@ -106,53 +127,84 @@
         <text x="236" y="176" class="label-value">β = {{ schematic.beta }}</text>
       </g>
     </svg>
-
     <p class="caption">Voltage-divider bias sets the base voltage; RE stabilises the Q-point
        against β variation.</p>
+
+    {% elif mode == 'fixed' %}
+    <div class="circuit-text">
+      <pre class="circuit-ascii">VCC ──┬── RC ── Collector
+      │          Q1 (NPN)
+      RB ─────── Base
+      │          Emitter ── GND
+      GND</pre>
+      <p>RB feeds the base from VCC and the emitter is tied directly to ground.</p>
+    </div>
+    <p class="caption">Fixed bias &mdash; IB = (VCC − VBE) / RB. Only RB is added to the
+       shared inputs.</p>
+
+    {% else %}
+    <div class="circuit-text">
+      <pre class="circuit-ascii">VCC ──┬── RC ── Collector
+      │          Q1 (NPN)
+      RB ─────── Base
+      │          Emitter ── RE ── GND
+      GND</pre>
+      <p>RB feeds the base from VCC; RE lifts the emitter above ground for
+         DC negative feedback.</p>
+    </div>
+    <p class="caption">Emitter bias &mdash; IB = (VCC − VBE) / [RB + (β + 1)·RE].
+       RB and RE are used.</p>
+    {% endif %}
   </section>
 
   <section class="card results">
     <h2>{{ icon("bars") }}DC Bias Results</h2>
 
+    {% if mode == 'divider' %}
+      {% set base_label = 'VBB' %}{% set base_value = result.vbb_v if result else none %}
+    {% else %}
+      {% set base_label = 'VB' %}{% set base_value = result.vb_v if result else none %}
+    {% endif %}
+    {% set qrows = [
+      (base_label, base_value, 'V'),
+      ('VE', result.ve_v if result else none, 'V'),
+      ('VC', result.vc_v if result else none, 'V'),
+      ('VCE', result.vce_v if result else none, 'V'),
+      ('IB', result.ib_a if result else none, 'A'),
+      ('IC', result.ic_a if result else none, 'A'),
+      ('IE', result.ie_a if result else none, 'A')] %}
+
     <div class="qtable">
-      {% if solution %}
-      {% set main_rows = [
-        ("VBB", solution.exact.vbb, "V"),
-        ("VE", solution.exact.ve, "V"),
-        ("VC", solution.exact.vc, "V"),
-        ("VCE", solution.exact.vce, "V"),
-        ("IB", solution.exact.ib, "A"),
-        ("IC", solution.exact.ic, "A"),
-        ("IE", solution.exact.ie, "A")] %}
-      {% for qlabel, qvalue, qunit in main_rows %}
+      {% for qlabel, qvalue, qunit in qrows %}
+      {% if qvalue is not none %}
       <div class="qrow"><span class="qk">{{ qlabel }}</span><span class="qv">{{ qvalue|si(qunit) }}</span></div>
-      {% endfor %}
       {% else %}
-      {% for qlabel in ["VBB", "VE", "VC", "VCE", "IB", "IC", "IE"] %}
       <div class="qrow"><span class="qk">{{ qlabel }}</span><span class="qv qv-empty">&mdash;</span></div>
-      {% endfor %}
       {% endif %}
+      {% endfor %}
     </div>
 
-    {% if solution %}
+    {% if result %}
+    {% if mode == 'divider' %}{% set active_title = 'Active region approximation OK' %}
+    {% else %}{% set active_title = 'Forward-active region OK' %}{% endif %}
     {% set status_titles = {
-         "active": "Active region approximation OK",
-         "near-saturation": "Close to saturation",
-         "saturation": "Transistor in saturation",
-         "cut-off": "Transistor cut off"} %}
-    <div class="status status-{{ solution.region }}">
-      <p class="status-title">{{ status_titles[solution.region] }}</p>
-      {% if solution.region == "active" %}
-      <p class="status-text">VCE = {{ solution.exact.vce|si("V") }} &gt; 0.2 V
+         'active': active_title,
+         'near-saturation': 'Close to saturation',
+         'saturation': 'Transistor in saturation',
+         'cut-off': 'Transistor cut off'} %}
+    <div class="status status-{{ result.region }}">
+      <p class="status-title">{{ status_titles[result.region] }}</p>
+      {% if result.region == 'active' %}
+      <p class="status-text">VCE = {{ result.vce_v|si('V') }} &gt; 0.2 V
          (transistor in active region).</p>
       {% else %}
-      {% for message in solution.messages %}
-      <p class="status-text">{{ message.text }}</p>
+      {% for warning in result.warnings %}
+      <p class="status-text">{{ warning }}</p>
       {% endfor %}
+      {% if result.ic_sat_a is not none %}
+      <p class="status-text">IC(sat) = {{ result.ic_sat_a|si('A') }},
+         forced β = {{ '%.3g'|format(result.forced_beta) }}.</p>
       {% endif %}
-      {% if solution.ic_sat is not none %}
-      <p class="status-text">IC(sat) = {{ solution.ic_sat|si("A") }},
-         forced β = {{ "%.3g"|format(solution.forced_beta) }}.</p>
       {% endif %}
     </div>
     {% elif errors %}
@@ -171,13 +223,13 @@
 
 {% if solution %}
 <section class="card verify">
-  <h2>Independent Check &mdash; Exact vs Approximate</h2>
+  <h2>{{ icon('route') }}Independent Check &mdash; Exact vs Approximate</h2>
   {% if solution.rows %}
-  {% if solution.region == "active" %}
+  {% if solution.region == 'active' %}
   <p class="muted">Exact (Thevenin, finite β) against the approximation that sets
      I<sub>B</sub> to zero. Largest difference:
-     <strong>{{ "%.2f"|format(solution.max_delta_pct) }}%</strong>
-     {% if solution.verdict == "negligible" %}&mdash; negligible, the approximation is fine.{% elif solution.verdict == "small" %}&mdash; small; the exact solution corrects for base-current loading.{% else %}&mdash; large; use the exact value.{% endif %}</p>
+     <strong>{{ '%.2f'|format(solution.max_delta_pct) }}%</strong>
+     {% if solution.verdict == 'negligible' %}&mdash; negligible, the approximation is fine.{% elif solution.verdict == 'small' %}&mdash; small; the exact solution corrects for base-current loading.{% else %}&mdash; large; use the exact value.{% endif %}</p>
   {% else %}
   <p class="notice">The transistor is not in the forward-active region, so the approximate
      column is <strong>not applicable</strong> here &mdash; it is shown for reference only,
@@ -194,7 +246,7 @@
         <td>{{ row.exact|si(row.unit) }}</td>
         <td>{{ row.approximate|si(row.unit) }}</td>
         <td>{% if row.delta > 0 %}+{% endif %}{{ row.delta|si(row.unit) }}</td>
-        <td>{% if row.delta_pct is none %}n/a{% else %}{{ "%+.2f"|format(row.delta_pct) }}%{% endif %}</td>
+        <td>{% if row.delta_pct is none %}n/a{% else %}{{ '%+.2f'|format(row.delta_pct) }}%{% endif %}</td>
       </tr>
       {% endfor %}
     </tbody>
@@ -203,8 +255,16 @@
   <p class="muted">No comparison for this operating point: the approximate model needs an
      emitter resistor and a conducting transistor.</p>
   {% endif %}
-  <p class="qmeta">Thevenin base resistance <strong>RB = {{ solution.exact.rb|si("Ω") }}</strong>
-     &middot; transistor dissipation <strong>P = {{ solution.exact.p_transistor|si("W") }}</strong>.</p>
+  <p class="qmeta">Thevenin base resistance <strong>RB = {{ solution.exact.rb|si('Ω') }}</strong>
+     &middot; transistor dissipation <strong>P = {{ solution.exact.p_transistor|si('W') }}</strong>.</p>
+</section>
+{% elif result %}
+<section class="card verify">
+  <h2>{{ icon('route') }}Equation Used</h2>
+  <p class="muted">{{ mode_label }} &mdash; {{ equations[mode] if equations else 'IB = (VCC − VBE) / RB' }}</p>
+  <p class="qmeta">Base current <strong>IB = {{ result.ib_a|si('A') }}</strong>
+     &middot; collector current <strong>IC = {{ result.ic_ma|si('mA') }}</strong>
+     &middot; V<sub>CE</sub> = <strong>{{ result.vce_v|si('V') }}</strong>.</p>
 </section>
 {% endif %}
 
@@ -213,5 +273,13 @@
   <p>Rough target for this lab: build a Flask web app that takes the circuit parameters,
      computes the BJT DC bias (VBB, VE, VC, VCE, IB, IC, IE) for a common-emitter amplifier
      with voltage-divider bias, and displays the results.</p>
+</section>
+
+<section class="card goal">
+  <span class="tag">Lab 03</span>
+  <p>One web app, three bias circuits. Switch circuit above to reload only the fields that
+     circuit needs, press <strong>Calculate DC Bias</strong>, then compare the page with the
+     independent A1&ndash;A5 reference values. All equations stay in Python
+     (<code>dc_bias.py</code> / <code>bjt_bias.py</code>); Flask only selects the model.</p>
 </section>
 {% endblock %}

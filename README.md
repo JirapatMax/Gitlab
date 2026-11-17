@@ -1,186 +1,77 @@
-# BJT Common-Emitter DC Bias Calculator
+# BJT Common-Emitter DC Bias Calculator — Lab 03
 
-A small Flask web app that solves the DC operating point (Q-point) of an NPN BJT in a
-common-emitter **voltage-divider bias** circuit, validates the input, warns when the
-transistor is outside the forward-active region, and checks the answer against an
-independent textbook approximation.
+Flask web app ที่คำนวณจุดทำงานกระแสตรง (Q-point) ของทรานซิสเตอร์ NPN แบบ
+common-emitter ได้ **3 วงจรไบอัส** จากเว็บเดียว:
 
-Written for the ENG29 2121 lab. No AC analysis, no transient analysis, no FET — just the
-DC bias point.
+| โหมด | วงจร | สมการหา I<sub>B</sub> | อินพุตที่ใช้ |
+|---|---|---|---|
+| `divider` | Voltage Divider Bias (ของเดิมจาก Lab 02) | `(VTH − VBE) / [RTH + (β+1)·RE]` | VCC, R1, R2, RC, RE, β, VBE |
+| `fixed` | Fixed Bias | `(VCC − VBE) / RB` | VCC, RB, RC, β, VBE |
+| `emitter` | Emitter Bias (แหล่งจ่ายเดียว) | `(VCC − VBE) / [RB + (β+1)·RE]` | VCC, RB, RC, RE, β, VBE |
 
-แอป Flask ขนาดเล็กสำหรับคำนวณจุดทำงานกระแสตรง (Q-point) ของทรานซิสเตอร์ NPN แบบ
-common-emitter ที่ไบอัสด้วยตัวแบ่งแรงดัน ตรวจสอบค่าที่กรอก เตือนเมื่อทรานซิสเตอร์
-ไม่อยู่ในย่าน forward-active และเทียบผลกับวิธีประมาณแบบตำราอีกวิธีหนึ่ง
+โดย `VTH = VCC·R2/(R1+R2)` และ `RTH = R1·R2/(R1+R2)`
 
-The page is a three-column dashboard — **Input Parameters**, **Circuit:
-Common-Emitter Amplifier**, **DC Bias Results** — with the exact-vs-approximate check and
-a *Week 2 Goal* card below it. One form, no JavaScript.
+ค่าที่ได้จากทุกโหมด: `VB, VE, VC, VCE` (V), `IB, IC, IE` (A)
+และ `IC` แสดงเป็น mA ด้วย ผลที่ได้อยู่ในรูป `dict` ที่มีคีย์และหน่วยตรงกันทุกโหมด
+(`vb_v`, `ve_v`, `vc_v`, `vce_v`, `ib_a`, `ic_a`, `ie_a`, `ib_ua`, `ic_ma`,
+`ie_ma`, `region`, `warnings`, ...)
+
+**ข้อจำกัดช่วงนี้:** DC operating point เท่านั้น — ไม่มี SPICE, DC load line,
+AC/transient หรือ bypass capacitor ไม่มี unittest ใหม่ (ใช้ชุดทดสอบเดิม
+71 tests และตาราง A1–A5 ผ่านเบราว์เซอร์)
 
 ---
 
-## Circuit
+## วิธีเลือกวงจร
 
-```
-        VCC
-         │
-    ┌────┴────┐
-   R1         RC
-    │         │
-    ├─────────┤ collector
-    │         │
-   R2        Q1  base at the R1/R2 node
-    │         │
-    │        RE
-    │         │
-   GND       GND
-```
+1. เปิดเว็บ แล้วใช้ dropdown **Bias circuit** ด้านบน เลือกโหมดแล้วกด
+   **Apply circuit** — หน้าเว็บจะโหลดใหม่และโชว์เฉพาะช่องที่โหมดนั้นใช้
+   (เช่น Fixed ไม่มีช่อง R1/R2/RE, Emitter มี RB และ RE)
+2. กรอกค่าตามหน่วยบนฟอร์ม ( Resistance เป็น **Ω**: `1 MΩ = 1000000 Ω`,
+   `1 kΩ = 1000 Ω`) แล้วกด **Calculate DC Bias**
+3. ผลและข้อความเตือนจะระบุโหมดที่เลือกเสมอ และถ้าอินพุตผิด ช่องผลจะเป็น
+   `—` ทั้งหมด ไม่โชว์ผลของรอบก่อน
 
-`VCC` feeds the divider `R1`/`R2`, which sets the base voltage. `RC` sets the collector
-voltage and `RE` stabilises the operating point against β variation. The emitter is also
-the reference for `VBE`.
-
-## Two calculations
-
-### 1. Exact — Thévenin equivalent with finite β
-
-Replace the divider with its Thévenin equivalent:
-
-```
-VBB = VCC · R2 / (R1 + R2)
-RB  = R1 · R2 / (R1 + R2)
-```
-
-Then write the base loop and solve for the base current:
-
-```
-IB  = (VBB − VBE) / (RB + (β + 1) · RE)
-IC  = β · IB
-IE  = IB + IC = (β + 1) · IB
-VE  = IE · RE
-VC  = VCC − IC · RC
-VCE = VC − VE
-P   = VCE · IC
-```
-
-This is the value the app reports as the operating point.
-
-### 2. Approximate — textbook method with `IB ≈ 0`
-
-Assume the base current is negligible, so `IE ≈ IC` and the base sits at `VBB`:
-
-```
-IE  = (VBB − VBE) / RE
-IC  ≈ IE
-IB  = IE / β
-VE  = IE · RE
-VC  = VCC − IC · RC
-VCE = VC − VE
-```
-
-Skipped when `RE = 0` (division by zero) or when the transistor is cut off.
-
-### Independent check
-
-The app puts the exact and approximate values side by side for `IB, IC, IE, VE, VC, VCE`
-— exact value, approximate value, absolute difference `Δ` and relative difference `Δ%` —
-and reports the largest relative difference:
-
-| Largest difference | Verdict |
-|---|---|
-| ≤ 2 % | negligible — the approximation is fine |
-| ≤ 10 % | small — the exact solution corrects a few percent |
-| > 10 % | large — the divider is too lightly loaded, use the exact value |
-
-The two methods are independent: the exact one keeps the `(β + 1)·RE` term, the
-approximate one drops it. Agreement between them is the sanity check.
-
-Outside the forward-active region the approximate column is still shown but flagged
-**not applicable**, because the model only describes active-region operation.
+ไม่มี JavaScript ในหน้าเว็บ — การเปลี่ยนโหมดเป็น GET ธรรมดา
+(`/?mode=fixed`) และการคำนวณเป็น POST พร้อม hidden field `mode`
 
 ## Inputs
 
-| Field | Meaning | Unit | Rule |
+| Field | ความหมาย | หน่วย | กฎ |
 |---|---|---|---|
-| `VCC` | supply voltage | V | > 0, ≤ 1000 |
-| `R1` | upper divider resistor | Ω | 10⁻⁶ … 10⁹ |
-| `R2` | lower divider resistor | Ω | 10⁻⁶ … 10⁹ |
-| `RC` | collector resistor | Ω | 10⁻⁶ … 10⁹ |
-| `RE` | emitter resistor | Ω | 0, or 10⁻⁶ … 10⁹ |
-| `β` | forward current gain | — | ≥ 1, ≤ 100000 |
-| `VBE` | base-emitter voltage | V | ≥ 0, < VCC |
+| `VCC` | แหล่งจ่าย | V | > 0, ≤ 1000 |
+| `RB` | ตัวต้านทานเบส (Fixed/Emitter) | Ω | > 0, 10⁻⁶ … 10⁹ |
+| `R1`, `R2` | ตัวแบ่งแรงดัน (Divider) | Ω | > 0, 10⁻⁶ … 10⁹ |
+| `RC` | ตัวต้านทานคอลเลกเตอร์ | Ω | > 0, 10⁻⁶ … 10⁹ |
+| `RE` | ตัวต้านทานอีมิเตอร์ (Divider/Emitter) | Ω | 0 หรือ 10⁻⁶ … 10⁹ |
+| `β` | current gain | — | 1 … 100000 |
+| `VBE` | แรงดันเบส–อีมิเตอร์ | V | ≥ 0 และ < VCC |
 
-Resistances below 1 µΩ are rejected: there the ideal model divides by a number that
-underflows to zero, and the resulting currents stop meaning anything.
-
-Invalid input returns HTTP 400, shows the message next to the field, and keeps the raw
-values so the form can be corrected.
-
-## Outputs
-
-| Quantity | Unit |
-|---|---|
-| `VBB`, `RB` (Thévenin equivalent) | V, Ω |
-| `IB`, `IC`, `IE` | A |
-| `VE`, `VC`, `VCE` | V |
-| `P` (transistor dissipation) | W |
-
-Values use engineering prefixes (`µA`, `mA`, `kΩ`, …) and three significant figures.
+อินพุตผิด → HTTP 400, แสดงข้อความข้างช่องนั้น และเก็บค่าที่กรอกไว้แก้ได้
+โหมดที่ไม่รู้จักถูกปฏิเสธ (ไม่เดาว่าเป็น Divider)
 
 ## Region rules
 
-| Region | Condition | Message |
+| Region | เงื่อนไข | การแสดงผล |
 |---|---|---|
-| Cut-off | `VBB ≤ VBE` | warning; `IC = 0`, `VC = VCC`, comparison suppressed, suggests raising R2 or VCC |
-| Saturation | `VCE < 0.2 V` | error; reports `IC(sat) = (VCC − 0.2) / (RC + RE)` and forced β (undefined if `VCC ≤ 0.2 V`) |
-| Near saturation | `0.2 V ≤ VCE < 1.0 V` | warning; Q-point is sensitive to β and VBE |
-| Active | `VCE ≥ 1.0 V` | info; transistor is in the forward-active region |
+| Active | VCE ≥ 1.0 V | แสดงผลปกติ |
+| Near saturation | 0.2 V ≤ VCE < 1.0 V | เตือนว่า Q-point ไวต่อ β และ VBE |
+| Saturation | VCE < 0.2 V | เตือนว่าแบบจำลอง forward active อาจใช้ไม่ได้ |
+| Cut-off | IB ≤ 0 | เตือนว่าแบบจำลอง forward active อาจใช้ไม่ได้ |
 
-In cut-off and saturation the linear-region numbers are still displayed, but they are not
-a valid bias point — read the message.
-
-## Worked example
-
-The form opens with the lab's example circuit: `VCC = 12 V`, `R1 = 100 kΩ`, `R2 = 22 kΩ`,
-`RC = 2.2 kΩ`, `RE = 1 kΩ`, `β = 100`, `VBE = 0.7 V` — the labels drawn on the schematic.
-
-The hand-checked case below uses `R1 = 47 kΩ`, `R2 = 10 kΩ`, `β = 150` because it divides
-evenly enough to verify by hand:
-
-| Quantity | Exact | Approximate | Δ | Δ% |
-|---|---|---|---|---|
-| VBB | 2.105263 V | 2.105263 V | — | — |
-| RB | 8245.614 Ω | 8245.614 Ω | — | — |
-| IB | 8.824501 µA | 9.368421 µA | +543.9 nA | +6.164 |
-| IC | 1.323675 mA | 1.405263 mA | +81.59 µA | +6.164 |
-| IE | 1.332500 mA | 1.405263 mA | +72.76 µA | +5.461 |
-| VE | 1.332500 V | 1.405263 V | +72.76 mV | +5.461 |
-| VC | 9.087915 V | 8.908421 V | −179.5 mV | −1.975 |
-| VCE | 7.755415 V | 7.503158 V | −252.3 mV | −3.253 |
-| P | 10.26565 mW | 10.54391 mW | — | — |
-
-The app renders these with SI prefixes and three significant figures, so `IB` shows as
-`8.82 µA` and the `IC` difference as `81.6 µA`.
-
-Region: **active** (`VCE = 7.76 V`). Largest difference 6.16 % → verdict **small**.
-
-Other reference cases (used in the tests):
-
-- **Saturation:** same but `RC = 10 kΩ` → `VCE = −2.569 V`, `IC(sat) = 1.0727 mA`,
-  forced β ≈ 121.6.
-- **Cut-off:** same but `R1 = 100 kΩ`, `R2 = 1 kΩ` → `VBB = 0.1188 V ≤ VBE` → `IC = 0`,
-  `VC = 12 V`.
-- **`RE = 0`:** same but `RE = 0` → exact `IB = 170 µA`, `IC = 25.56 mA`, `VE = 0`;
-  the approximate model is skipped.
+Divider ยังคงมีตาราง **Exact vs Approximate** แบบ Lab 02 (เทียบ Thevenin
+แบบ finite β กับวิธีประมาณ `IB ≈ 0`) และค่าอ้างอิง IC(sat)/forced β
+เหมือนเดิมทุกประการ
 
 ## Run it (Windows)
 
 ```powershell
 py -m venv .venv
 .venv\Scripts\python.exe -m pip install -r requirements.txt
-.venv\Scripts\python.exe app.py
+.venv\Scripts\python.exe -m flask --app app run
 ```
 
-Open <http://127.0.0.1:5000>. If port 5000 is taken, run with an explicit port:
+เปิด <http://127.0.0.1:5000>. ถ้าพอร์ต 5000 ถูกใช้ ให้เปลี่ยนพอร์ต:
 
 ```powershell
 .venv\Scripts\python.exe -m flask --app app run --port 5001
@@ -192,33 +83,56 @@ Open <http://127.0.0.1:5000>. If port 5000 is taken, run with an explicit port:
 .venv\Scripts\python.exe -m pytest -q
 ```
 
-71 tests: formulas against hand-calculated golden values, region boundaries, input
-validation (including a regression test for tiny-but-valid resistances), the comparison,
-SI formatting boundaries, and four route-level tests (GET, valid POST, invalid POST → 400,
-cut-off POST).
+71 tests เดิมจาก Lab 02 ยังผ่านทั้งหมด (สูตร, region, validation, comparison,
+SI formatting และ route-level) — เป็นหลักฐานว่าโหมด Divider ไม่เสียจากการเพิ่มวงจรใหม่
+
+## Browser acceptance
+
+ตาราง A1–A5 พร้อมค่าอ้างอิงอิสระ ผลที่เห็นจริง วิธีตรวจ สถานะ และภาพหน้าจอ
+อยู่ใน [`docs/validation.md`](docs/validation.md)
+ค่าอ้างอิงคำนวณแยกด้วย [`docs/reference_calculation.py`](docs/reference_calculation.py)
+ซึ่งไม่ import โมดูลของแอปเลย
+
+รอบที่บันทึกไว้ใช้ **OpenCode Browser** (Playwright MCP ไม่ได้ตั้งค่าในเครื่อง
+จึงระบุว่า NOT RUN) ตรวจครบ 5 กรณี ผล IC/VCE ทุกกรณีอยู่ในเกณฑ์
+0.01 mA / 0.02 V และ A5 แสดงข้อความ `must be greater than 0` โดยผลเป็น `—` ทั้งหมด
 
 ## Files
 
 ```
-app.py                      Flask app: routes, template filter, defaults
-bjt_bias.py                 engineering logic — no Flask import
+app.py                      Flask routes: เลือกโหมดด้วย if/elif, ตรวจอินพุตตามโหมด
+bjt_bias.py                 วิศวกรรมเดิมของ Lab 02 (Divider, exact/approx, region)
+dc_bias.py                  ฟังก์ชันใหม่ solve_fixed/solve_emitter/solve_divider + validator
 formatting.py               SI-prefix number formatting
-templates/base.html         page shell and stylesheet link
-templates/index.html        form, schematic, Q-point, comparison
-static/style.css            the only stylesheet
-tests/test_bjt_bias.py      formulas, regions, validation, comparison
-tests/test_formatting.py    SI formatting edge cases
-tests/test_app.py           route-level tests
-requirements.txt            Flask and pytest version ranges
-docs/superpowers/specs/     approved design
-docs/superpowers/plans/     implementation plan
+templates/index.html        mode selector, ฟอร์มตามโหมด, ผลลัพธ์, การตรวจสอบ
+static/style.css            stylesheet
+tests/                      ชุดทดสอบเดิม 71 tests (ไม่เปลี่ยน)
+docs/validation.md          A1–A5, ค่าอ้างอิง, หลักฐาน, บทบาท MCP
+docs/reference_calculation.py   สคริปต์คำนวณค่าอ้างอิงอิสระ
+docs/evidence/              ภาพหน้าจอจากเบราว์เซอร์
+docs/superpowers/           spec/plan เดิมของ Lab 02
+requirements.txt            Flask, pytest
 ```
+
+## สิ่งที่ AI เขียน vs สิ่งที่ตรวจ
+
+- **AI เขียน:** `dc_bias.py` (ฟังก์ชัน Fixed/Emitter, validator ตามโหมด, รูป dict ร่วม),
+  ส่วนที่เลือกโหมดใน `app.py`, โครงฟอร์ม/ผลใน `index.html`, CSS ของ mode bar
+- **ผู้สอน/นักศึกษาตรวจ:** สมการเทียบใบงาน (IB ของทั้ง 3 วงจร และ VE ของ Fixed ที่เป็น 0),
+  หน่วย Ω/A → V/mA, ค่าอ้างอิงอิสระ A1–A4, ว่า Divider ให้ผลเดิม (ชุดทดสอบ 71 tests),
+  และผลจริงจากเบราว์เซอร์ A1–A5
+
+## Submission
+
+- GitHub: <https://github.com/JirapatMax/Gitlab>
+- งาน Lab 3 อยู่บน branch `main`
+- Commit SHA ของงานนี้ดูได้จาก `git log -1 --format=%H` หรือจากคำตอบที่ส่งพร้อมตาราง A1–A5
 
 ## Limitations
 
-- DC only: no AC gain, frequency response, or transient analysis.
-- No temperature sweep and no self-heating; `VBE` is a constant you supply.
-- One BJT topology (NPN common-emitter, voltage-divider bias). No FET, no PNP, no
-  circuit editor.
-- The models are the ideal Shockley-free textbook ones — no Early effect, no
-  recombination current, no parasitic resistances.
+- DC only: ไม่มี AC gain, frequency response หรือ transient
+- β และ VBE เป็นค่าคงที่ที่ผู้ใช้ป้อน ไม่มี temperature sweep หรือ self-heating
+- เฉพาะ NPN common-emitter 3 วงจรนี้ ไม่มี PNP/FET หรือ circuit editor
+- โมเดลเป็นแบบตำรา ไม่มี Early effect, recombination หรือ parasitic resistance
+- ในย่าน cutoff/saturation แสดงผลของแบบจำลอง *forward active* ไว้ให้ดู
+  พร้อมข้อความเตือน แต่ไม่ได้คำนวณค่าจริงของ cutoff/saturation ให้
