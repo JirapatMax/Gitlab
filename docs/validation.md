@@ -68,10 +68,14 @@ Divider : VTH = VCC·R2/(R1+R2),  RTH = R1·R2/(R1+R2)
   ที่กรอก RB=1 MΩ, RE=1 kΩ แล้วกดคำนวณจริง เห็น `IC = 1.03 mA`, `VCE = 8.71 V`
 - [`evidence/A5-invalid-rb.png`](evidence/A5-invalid-rb.png) — หน้า Fixed Bias ที่กรอก
   RB=0 เห็น `must be greater than 0` และผลเป็น `—` ทุกช่อง
+- [`evidence/schematic-divider-bias.png`](evidence/schematic-divider-bias.png) — ภาพวงจร
+  Voltage Divider Bias หลังปรับดีไซน์ (R1/R2 แบ่งแรงดัน Base, RC/RE ที่ขา C/E)
 - [`evidence/schematic-fixed-bias.png`](evidence/schematic-fixed-bias.png) — ภาพวงจร
   Fixed Bias (RB ต่อจาก VCC ไป Base, Emitter ต่อกราวด์ตรง ๆ)
 - [`evidence/schematic-emitter-bias.png`](evidence/schematic-emitter-bias.png) — ภาพวงจร
   Emitter Bias (RB ต่อ Base, RE ต่อ Emitter ลงกราวด์)
+- ภาพวงจรทั้ง 3 ใช้สไตล์เดียวกัน: การ์ดพื้นหลังโทนฟ้า, เส้น VCC/Base/Collector/Emitter
+  แยกสี, ป้ายค่าตัวต้านทานแบบ pill และสัญลักษณ์ NPN พร้อมลูกศร Emitter
 - ข้อความผลข้างต้นคัดมาจาก accessibility snapshot ของหน้าเว็บหลังส่งฟอร์มจริง
   (ไม่ได้อ่านจากโค้ด)
 - ไม่พบข้อความ error/warning ใน browser console ระหว่างรอบตรวจ

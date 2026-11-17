@@ -310,20 +310,109 @@ button:active { transform: translateY(1px); }
 .schematic {
   display: block;
   width: 100%;
-  max-width: 320px;
+  max-width: 340px;
   height: auto;
   margin: 2px auto 12px;
+  padding: 6px;
+  background: linear-gradient(160deg, #f9fcff 0%, #eef5fc 100%);
+  border: 1px solid #d9e6f4;
+  border-radius: 14px;
+  box-shadow: inset 0 1px 0 #fff, 0 6px 18px rgba(18, 37, 63, 0.08);
 }
 
-.schematic .wire { stroke: #2a3247; stroke-width: 2; fill: none; }
-.schematic .component { stroke: #2a3247; stroke-width: 2; fill: #fff; }
-.schematic .component .base-bar { stroke-width: 3; }
-.schematic .component .arrow { fill: #2a3247; }
-.schematic .ground { stroke: #2a3247; stroke-width: 2; }
-.schematic .node { fill: #2a3247; }
-.schematic .label { fill: var(--muted); font-size: 11px; font-weight: 600; }
-.schematic .label-strong { fill: var(--ink); font-weight: 700; }
-.schematic .label-value { fill: var(--accent); font-weight: 700; }
+.schematic text {
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+.schematic .rail-label {
+  fill: #a43b30;
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+}
+
+.schematic .rail {
+  stroke: #d95f52;
+  stroke-width: 2.5;
+  fill: none;
+  stroke-linecap: round;
+}
+
+.schematic .wire-base,
+.schematic .wire-collector,
+.schematic .wire-emitter {
+  fill: none;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.schematic .wire-base { stroke: #6d5bd0; }
+.schematic .wire-collector { stroke: #00748d; }
+.schematic .wire-emitter { stroke: #2f9e6f; }
+
+.schematic .resistor {
+  fill: #fff;
+  stroke: #27364e;
+  stroke-width: 2;
+}
+
+.schematic .transistor-circle {
+  fill: #fff;
+  stroke: #27364e;
+  stroke-width: 2;
+}
+
+.schematic .base-bar {
+  stroke: #27364e;
+  stroke-width: 3.5;
+  stroke-linecap: round;
+}
+
+.schematic .lead {
+  stroke: #27364e;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.schematic .arrow { fill: #2f9e6f; }
+
+.schematic .ground {
+  stroke: #5c6478;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.schematic .node { fill: #27364e; }
+.schematic .node-vcc { fill: #d95f52; }
+
+.schematic .pill rect {
+  stroke-width: 1;
+}
+
+.schematic .pill-name {
+  fill: var(--muted);
+  font-size: 9.5px;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+}
+
+.schematic .pill-value {
+  font-size: 11.5px;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+}
+
+.schematic .pill-vcc rect { fill: #fff1ef; stroke: #f2c2bb; }
+.schematic .pill-vcc .pill-value { fill: #a43b30; }
+.schematic .pill-base rect { fill: #f2efff; stroke: #d8cffb; }
+.schematic .pill-base .pill-value { fill: #5b45b5; }
+.schematic .pill-collector rect { fill: #e6f6fa; stroke: #bfe2ea; }
+.schematic .pill-collector .pill-value { fill: #006074; }
+.schematic .pill-emitter rect { fill: #e8f8f0; stroke: #bfe8d4; }
+.schematic .pill-emitter .pill-value { fill: #1d7a53; }
+.schematic .pill-q rect { fill: #f4f7fb; stroke: #d9e6f4; }
+.schematic .pill-q .pill-value { fill: var(--ink); }
 
 .caption {
   margin: auto 0 0;
