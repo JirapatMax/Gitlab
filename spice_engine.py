@@ -7,15 +7,118 @@ shell command), and returns the solver's log/raw text or an explicit error.
 
 from __future__ import annotations
 
+import math
 import os
 import shutil
 import subprocess
 import tempfile
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
 LOCAL_APP_DATA = os.environ.get("LOCALAPPDATA", str(Path.home() / "AppData" / "Local"))
 INSTALL_DIR = Path(LOCAL_APP_DATA) / "ngspice-47" / "Spice64" / "bin"
+
+ANALYSES = ("dc", "ac", "tran")
+MODEL_NAME = "QNPN_TEACH"
+# A documented teaching model, not a claim about any specific transistor.
+MODEL_CARD = (".model QNPN_TEACH NPN(IS=1E-14 BF=100 BR=0.1 VAF=100 "
+              "CJE=25p CJC=5p TF=0.3n)")
+SIM_FIELDS = ("vcc", "r1", "r2", "rc", "re", "rl", "cin", "cout",
+              "amplitude", "frequency")
+MIN_VALUE = 1e-6
+MAX_RESISTANCE = 1e9
+MAX_VCC = 1000.0
+MAX_AMPLITUDE = 1.0
+MAX_FREQUENCY = 1e6
+
+
+@dataclass
+class SimInputs:
+    vcc: float
+    r1: float
+    r2: float
+    rc: float
+    re: float
+    rl: float
+    cin: float
+    cout: float
+    amplitude: float
+    frequency: float
+
+
+def validate_sim_inputs(raw: Mapping[str, str]) -> tuple[SimInputs | None, dict[str, str]]:
+    """Parse and bound every simulator field before a netlist is built."""
+    errors: dict[str, str] = {}
+    values: dict[str, float] = {}
+    for name in SIM_FIELDS:
+        text = (raw.get(name) or "").strip()
+        if not text:
+            errors[name] = "required"
+            continue
+        try:
+            number = float(text)
+        except ValueError:
+            errors[name] = "must be a number"
+            continue
+        if not math.isfinite(number):
+            errors[name] = "must be a finite number"
+        elif number <= 0:
+            errors[name] = "must be greater than 0"
+        elif name in ("vcc", "amplitude", "frequency"):
+            limit = {"vcc": MAX_VCC, "amplitude": MAX_AMPLITUDE,
+                     "frequency": MAX_FREQUENCY}[name]
+            if number > limit:
+                errors[name] = f"must be at most {limit:g}"
+            else:
+                values[name] = number
+        elif number < MIN_VALUE or number > MAX_RESISTANCE:
+            errors[name] = "is outside the supported range"
+        else:
+            values[name] = number
+    if errors:
+        return None, errors
+    return SimInputs(**values), {}
+
+
+def build_netlist(inputs: SimInputs, analysis: str) -> str:
+    """Render one CE voltage-divider circuit with a single analysis directive."""
+    if analysis not in ANALYSES:
+        raise ValueError(f"unknown analysis: {analysis}")
+
+    def number(value: float) -> str:
+        return f"{value:.6g}"
+
+    def component(value: float) -> str:
+        for factor, suffix in ((1e9, "g"), (1e6, "meg"), (1e3, "k"), (1.0, ""),
+                               (1e-3, "m"), (1e-6, "u"), (1e-9, "n"), (1e-12, "p")):
+            if abs(value) >= factor:
+                return f"{value / factor:.6g}{suffix}"
+        return number(value)
+
+    lines = [
+        "* CE voltage-divider amplifier - ngspice teaching model",
+        MODEL_CARD,
+        f"VCC vcc 0 DC {number(inputs.vcc)}",
+        f"R1 vcc base {component(inputs.r1)}",
+        f"R2 base 0 {component(inputs.r2)}",
+        f"RC vcc collector {component(inputs.rc)}",
+        f"RE emitter 0 {component(inputs.re)}",
+        f"RL out 0 {component(inputs.rl)}",
+        f"Q1 collector base emitter {MODEL_NAME}",
+        f"CIN in base {component(inputs.cin)}",
+        f"COUT collector out {component(inputs.cout)}",
+        f"VIN in 0 DC 0 AC 1 SIN(0 {number(inputs.amplitude)} {number(inputs.frequency)})",
+    ]
+    if analysis == "dc":
+        lines.append(".op")
+    elif analysis == "ac":
+        lines.append(".ac dec 100 0.1 10Meg")
+    else:
+        period = 1.0 / inputs.frequency
+        lines.append(f".tran {number(period / 100)} {number(period * 5)}")
+    lines.append(".end")
+    return "\n".join(lines) + "\n"
 
 
 class SpiceUnavailable(Exception):
