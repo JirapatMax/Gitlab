@@ -33,6 +33,15 @@ def test_get_simulator_shows_defaults_without_chart(client):
     assert "Not run yet" in body
 
 
+def test_analysis_selector_form_carries_current_parameters(client):
+    """Regression: selecting analysis alone must submit every current field."""
+    body = client.get("/simulator").get_data(as_text=True)
+    top_form = body.split("</form>", 1)[0]
+
+    for name in spice_engine.SIM_FIELDS:
+        assert f'type="hidden" name="{name}"' in top_form
+
+
 def test_invalid_input_returns_400_without_chart(client):
     """Regression: RE=0 is rejected before ngspice starts and no chart survives."""
     response = client.post("/simulator", data={**FIXTURE, "analysis": "dc", "re": "0"})
