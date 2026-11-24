@@ -26,6 +26,11 @@ region, the transient Vin/Vout peaks and the final transient time. `No. Points`
 was updated to match each trimmed file and trailing spaces were stripped for a
 clean diff; all other header fields and value rows are unchanged.
 
+Derived values computed from a trimmed fixture (for example the AC `f_low_hz`
+asserted in `test_parse_ac_and_transient_units`) are only artifacts of the
+retained spacing. They are **not** the cutoff from the full 801-point sweep;
+the full-run value recorded in `docs/validation.md` is the circuit result.
+
 `NO_CROSS_RAW` in `tests/test_spice_engine.py` is intentionally a small
 hand-authored edge case for the “no −3 dB crossing” branch; it is not one of
 the parser's real-output fixtures.
