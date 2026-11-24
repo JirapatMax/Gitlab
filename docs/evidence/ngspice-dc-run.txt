@@ -1,0 +1,66 @@
+Real ngspice DC run used for Lab 04 B2 evidence
+
+--- netlist ---
+* CE voltage-divider amplifier - ngspice teaching model
+.model QNPN_TEACH NPN(IS=1E-14 BF=100 BR=0.1 VAF=100 CJE=25p CJC=5p TF=0.3n)
+VCC vcc 0 DC 12
+R1 vcc base 100k
+R2 base 0 22k
+RC vcc collector 2.2k
+RE emitter 0 1k
+RL out 0 10k
+Q1 collector base emitter QNPN_TEACH
+CIN in base 10u
+COUT collector out 10u
+VIN in 0 DC 0 AC 1 SIN(0 0.01 1000)
+.op
+.end
+--- ngspice log ---
+
+Note: No compatibility mode selected!
+
+
+Circuit: * ce voltage-divider amplifier - ngspice teaching model
+
+ASCII raw file "C:\Users\b6826604\AppData\Local\Temp\tmpzkvvecdy\run.raw"
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+No. of Data Columns : 8  
+
+No. of Data Rows : 1
+
+Total analysis time (seconds) = 0.0007398
+
+Total elapsed time (seconds) = 0.039 
+
+Total DRAM available = 16117.609 MB.
+DRAM currently available = 8443.719 MB.
+Maximum ngspice program size =   17.391 MB.
+Current ngspice program size =   17.391 MB.
+--- ASCII raw header + first point ---
+Title: * ce voltage-divider amplifier - ngspice teaching model
+Date: Tue Nov 24 17:30:16  2026
+Command: ngspice-47, Build Aug 11 2026   13:49:23
+Plotname: Operating Point
+Flags: real
+No. Variables: 8
+No. Points: 1       
+Variables:
+	0	v(vcc)	voltage
+	1	v(base)	voltage
+	2	v(collector)	voltage
+	3	v(emitter)	voltage
+	4	v(out)	voltage
+	5	v(in)	voltage
+	6	i(vin)	current
+	7	i(vcc)	current
+Values:
+0		1.200000000000000e+01
+	1.949112054780261e+00
+	9.189410178900651e+00
+	1.289453695545207e+00
+	0.000000000000000e+00
+	0.000000000000000e+00
+	0.000000000000000e+00
+

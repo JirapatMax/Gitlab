@@ -1,4 +1,4 @@
-# BJT Common-Emitter DC Bias Calculator — Lab 03
+# BJT CE Bias Calculator + ngspice Simulator — Lab 03/04
 
 Flask web app ที่คำนวณจุดทำงานกระแสตรง (Q-point) ของทรานซิสเตอร์ NPN แบบ
 common-emitter ได้ **3 วงจรไบอัส** จากเว็บเดียว:
@@ -16,9 +16,9 @@ common-emitter ได้ **3 วงจรไบอัส** จากเว็บ
 (`vb_v`, `ve_v`, `vc_v`, `vce_v`, `ib_a`, `ic_a`, `ie_a`, `ib_ua`, `ic_ma`,
 `ie_ma`, `region`, `warnings`, ...)
 
-**ข้อจำกัดช่วงนี้:** DC operating point เท่านั้น — ไม่มี SPICE, DC load line,
-AC/transient หรือ bypass capacitor ไม่มี unittest ใหม่ (ใช้ชุดทดสอบเดิม
-71 tests และตาราง A1–A5 ผ่านเบราว์เซอร์)
+Lab 04 เพิ่มหน้า `/simulator` สำหรับ CE voltage-divider หนึ่งวงจรที่รันจริงด้วย
+ngspice `.op`, `.ac`, `.tran` ส่วน `/` ยังเป็น DC calculator แบบประมาณจาก Lab 03
+เหมือนเดิม และผล SPICE กับผล Analytical ถูกแยกป้ายชื่อไว้เสมอ
 
 ---
 
@@ -66,6 +66,26 @@ Divider ยังคงมีตาราง **Exact vs Approximate** แบบ 
 แบบ finite β กับวิธีประมาณ `IB ≈ 0`) และค่าอ้างอิง IC(sat)/forced β
 เหมือนเดิมทุกประการ
 
+## ติดตั้ง ngspice 47 (Windows)
+
+ใช้ ngspice 47 Windows 64-bit (`ngspice-47_64.7z`) จากโฟลเดอร์ release ของ
+ngspice บน SourceForge แล้วแตกไฟล์ด้วย `py7zr` (ติดตั้งชั่วคราวนอก
+`requirements.txt`):
+
+```powershell
+.venv\Scripts\python.exe -m pip install py7zr
+.venv\Scripts\python.exe -c "import py7zr; py7zr.unpack_7zarchive(r'C:\Users\<you>\Downloads\ngspice-47_64.7z', r'C:\Users\<you>\AppData\Local\ngspice-47')"
+```
+
+ตำแหน่งที่โปรแกรมคาดหวังคือ `%LOCALAPPDATA%\ngspice-47\Spice64\bin\ngspice.exe`
+ถ้าเก็บที่อื่นให้ตั้ง环境变量 `NGSPICE_EXE` ให้ชี้ถึงไฟล์ `.exe` หรือเพิ่มโฟลเดอร์
+ลงใน `PATH` (ลำดับค้นหาคือ `NGSPICE_EXE` → `PATH` → ตำแหน่งด้านบน) binary
+ของ ngspice ไม่ได้ Commit ลง repository
+
+> บน build Windows นี้ `ngspice --version` ไม่พิมพ์ข้อความ โปรแกรมจึงอ่านเวอร์ชันจาก
+> บรรทัด `Command:` ใน ASCII raw ของผลรันจริง เช่น
+> `ngspice-47, Build Aug 11 2026   13:49:23`
+
 ## Run it (Windows)
 
 ```powershell
@@ -74,7 +94,8 @@ py -m venv .venv
 .venv\Scripts\python.exe -m flask --app app run
 ```
 
-เปิด <http://127.0.0.1:5000>. ถ้าพอร์ต 5000 ถูกใช้ ให้เปลี่ยนพอร์ต:
+เปิด <http://127.0.0.1:5000> สำหรับ Lab 03 และ <http://127.0.0.1:5000/simulator>
+สำหรับ Lab 04 ถ้าพอร์ต 5000 ถูกใช้ ให้เปลี่ยนพอร์ต:
 
 ```powershell
 .venv\Scripts\python.exe -m flask --app app run --port 5001
@@ -86,8 +107,8 @@ py -m venv .venv
 .venv\Scripts\python.exe -m pytest -q
 ```
 
-71 tests เดิมจาก Lab 02 ยังผ่านทั้งหมด (สูตร, region, validation, comparison,
-SI formatting และ route-level) — เป็นหลักฐานว่าโหมด Divider ไม่เสียจากการเพิ่มวงจรใหม่
+ตอนนี้มี **97 tests** (71 tests เดิมของ Lab 03 บวกชุด adapter/validation/parser/
+chart/route ของ Lab 04) ผ่านทั้งหมด — หลักฐานว่าโหมด Divider เดิมไม่เสียจากการเพิ่ม simulator
 
 ## Browser acceptance (A1–A5)
 
@@ -143,21 +164,65 @@ SI formatting และ route-level) — เป็นหลักฐานว่
 - ไม่ได้ใช้ `curl` หรืออ่านโค้ดแทนการรันเบราว์เซอร์ และไม่พบ error/warning
   ใน browser console ระหว่างรอบตรวจ
 
+## Lab 04 — CE Amplifier Simulator
+
+หน้า `/simulator` ใช้วงจรอ้างอิงเดียวตามใบงาน: `VCC=12 V`, `R1=100 kΩ`,
+`R2=22 kΩ`, `RC=2.2 kΩ`, `RE=1 kΩ`, `RL=10 kΩ`, `Cin=Cout=10 µF`,
+แหล่งสัญญาณ `10 mV peak / 1 kHz` ค่าเหล่านี้เป็น default ในฟอร์มและแก้ได้
+(generator ส่ง `VIN in 0 DC 0 AC 1 SIN(0 <amplitude> <frequency>)`)
+
+หน่วยที่ป้อนเป็นหน่วยฐาน: Ω สำหรับตัวต้านทาน, F สำหรับ capacitor, V สำหรับ
+VCC/amplitude, Hz สำหรับความถี่ ทุกค่าถูก validate ก่อนสร้าง netlist และ
+ngspice ถูกเรียกด้วย `subprocess.run([...], shell=False, timeout=20)` ใน temporary
+directory แยกต่อการรัน ผล `.op/.ac/.tran` ถูกอ่านจาก ASCII raw จริง แล้วค่อยวาด
+SVG บนเซิร์ฟเวอร์ ไม่มีค่ากราฟหรือ gain ที่ hard-code ไว้ล่วงหน้า
+
+BJT model ที่ใช้คือ **model การสอน** ไม่ใช่ส่วนประกอบจริงรุ่นใดรุ่นหนึ่ง:
+
+```spice
+.model QNPN_TEACH NPN(IS=1E-14 BF=100 BR=0.1 VAF=100 CJE=25p CJC=5p TF=0.3n)
+```
+
+node ใน netlist คือ `vcc, base, collector, emitter, in, out` โดย `Vin` วัดที่
+node `in` (หลังแหล่งสัญญาณก่อน `Cin`) และ `Vout` วัดที่ node `out` (หลัง `Cout`
+บน `RL`) กราฟ AC แกนเป็น Hz/dB/deg กราฟ transient แกนเป็น s/V และมี legend
+`Gain`, `Phase`, `Vin`, `Vout` กำกับ
+
+แถบสถานะแสดงทั้ง engine (`ngspice`), เวอร์ชันจาก raw header, model และ
+`Success/Error` ตาราง DC แยกคอลัมน์ **ngspice (SPICE)** กับ **Analytical (Lab 3)**
+อย่างชัดเจน ฝั่ง analytical ใช้สมการประมาณเดิมด้วย `β=100`, `VBE=0.7 V` เท่านั้น
+สำหรับ AC/transient หน้าเว็บระบุว่าตาราง analytical ไม่มีผล ถ้าสolver ล้มเหลว
+หรืออินพุตผิด สถานะจะเป็น Error และไม่มีการแสดงกราฟเก่าค้างอยู่
+
+ดูวิธีตรวจ B1–B8, หลักฐานจาก browser และข้อจำกัดได้ที่
+[`docs/validation.md`](docs/validation.md)
+
+### AI เขียน vs นักศึกษาตรวจ
+
+- **AI เขียน/แก้:** `spice_engine.py`, `charts.py`, หน้า `/simulator`, CSS, test
+  ของ Lab 04 และเอกสารนี้
+- **AI ยังไม่ได้ตรวจแทนนักศึกษา:** ความถูกต้องของสมการและหน่วยเทียบใบงาน,
+  ที่มาของ BJT model, log/raw ของ ngspice ที่รันบนเครื่องผู้ใช้, และการยืนยัน
+  ผล B1–B8 จาก browser จริงตามตารางใน `docs/validation.md`
+
 ## Files
 
 ```
-app.py                      Flask routes: เลือกโหมดด้วย if/elif, ตรวจอินพุตตามโหมด
+app.py                      Flask routes: Lab 03 `/` และ Lab 04 `/simulator`
 bjt_bias.py                 วิศวกรรมเดิมของ Lab 02 (Divider, exact/approx, region)
-dc_bias.py                  ฟังก์ชันใหม่ solve_fixed/solve_emitter/solve_divider + validator
+dc_bias.py                  solve_fixed/solve_emitter/solve_divider + validator
 formatting.py               SI-prefix number formatting
+spice_engine.py             validate → netlist → subprocess ngspice → parse raw
+charts.py                   SVG Bode/waveform จาก parsed vectors เท่านั้น
 templates/index.html        mode selector, ฟอร์มตามโหมด, ผลลัพธ์, การตรวจสอบ
-static/style.css            stylesheet
-tests/                      ชุดทดสอบเดิม 71 tests (ไม่เปลี่ยน)
-docs/validation.md          A1–A5, ค่าอ้างอิง, หลักฐาน, บทบาท MCP
-docs/reference_calculation.py   สคริปต์คำนวณค่าอ้างอิงอิสระ
-docs/evidence/              ภาพหน้าจอจากเบราว์เซอร์
-docs/superpowers/           spec/plan เดิมของ Lab 02
-requirements.txt            Flask, pytest
+templates/simulator.html    ฟอร์ม CE, status strip, กราฟ, ตาราง SPICE vs Analytical
+static/style.css            stylesheet ร่วมของทั้งสองหน้า
+tests/                      97 tests: 71 เดิม + 26 ของ Lab 04
+docs/validation.md          A1–A5 และ B1–B8, ค่าอ้างอิง, หลักฐาน, บทบาท MCP
+docs/reference_calculation.py   สคริปต์คำนวณค่าอ้างอิงอิสระของ Lab 03
+docs/evidence/              ภาพหน้าจอและ log ตัวอย่างจากเบราว์เซอร์/ngspice จริง
+docs/superpowers/           spec/plan ของ Lab 02 และ Lab 04
+requirements.txt            Flask, pytest (ไม่รวม ngspice binary)
 ```
 
 ## สิ่งที่ AI เขียน vs สิ่งที่ตรวจ
@@ -176,9 +241,16 @@ requirements.txt            Flask, pytest
 
 ## Limitations
 
-- DC only: ไม่มี AC gain, frequency response หรือ transient
-- β และ VBE เป็นค่าคงที่ที่ผู้ใช้ป้อน ไม่มี temperature sweep หรือ self-heating
-- เฉพาะ NPN common-emitter 3 วงจรนี้ ไม่มี PNP/FET หรือ circuit editor
-- โมเดลเป็นแบบตำรา ไม่มี Early effect, recombination หรือ parasitic resistance
-- ในย่าน cutoff/saturation แสดงผลของแบบจำลอง *forward active* ไว้ให้ดู
-  พร้อมข้อความเตือน แต่ไม่ได้คำนวณค่าจริงของ cutoff/saturation ให้
+- Lab 03 ยังเป็น DC แบบประมาณ ส่วน Lab 04 รัน SPICE ได้เฉพาะ CE voltage-divider
+  วงจรอ้างอิงเดียว ไม่มี AC/transient สำหรับ Fixed/Emitter และไม่มี circuit editor
+- ฝั่ง analytical ของ Lab 04 ตายตัวที่ `β=100`, `VBE=0.7 V` เพื่อใช้เทียบกับ model
+  การสอน ไม่ใช่ค่าที่อ่านจาก ngspice
+- SPICE ใช้ `QNPN_TEACH` ซึ่งเป็น teaching model ไม่ใช่ข้อมูลของ transistor รุ่นจริง
+  และไม่มี temperature sweep, self-heating, mismatch หรือ Monte Carlo
+- AC sweep อยู่ในช่วง 0.1 Hz–10 MHz (100 points/decade) และ transient รัน 5 period
+  ของความถี่ที่ป้อน ถ้าไม่มีจุดตัด −3 dB ในช่วง sweep หน้าเว็บจะแสดง
+  `not determined in sweep range` แทนการแต่งค่า f<sub>high</sub>
+- ต้องมี ngspice 47 ติดตั้งนอก repo; repository นี้ไม่ได้รวม binary หรือ large run files
+- ใช้ Flask development server เหมาะสำหรับแล็บ/รันในเครื่อง ไม่ใช่ production deployment
+- ในย่าน cutoff/saturation ของหน้า Lab 03 แสดงผลของแบบจำลอง *forward active*
+  ไว้ให้ดูพร้อมข้อความเตือน ไม่ได้คำนวณค่าจริงของ cutoff/saturation ให้
