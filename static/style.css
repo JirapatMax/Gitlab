@@ -597,3 +597,84 @@ button:active { transform: translateY(1px); }
   line-height: 1.5;
   color: #3c4557;
 }
+
+/* Lab 04 navigation and simulator */
+
+.app-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 16px;
+}
+
+.app-nav a {
+  padding: 5px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--accent-dark);
+  font-size: 0.76rem;
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.app-nav a:hover { background: var(--info-bg); }
+
+.subtitle a { color: var(--accent-dark); font-weight: 650; }
+
+.sim-grid .input-card fieldset {
+  margin: 0 0 12px;
+  padding: 9px 10px 4px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.sim-grid .input-card legend {
+  padding: 0 5px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.circuit-ascii {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.chart-card { margin-top: 16px; }
+
+.chart {
+  display: block;
+  width: 100%;
+  height: auto;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: visible;
+}
+
+.chart .chart-bg { fill: #fbfdff; stroke: #e6ecf4; }
+.chart .grid-line { stroke: #e3eaf3; stroke-width: 1; }
+.chart .axis { stroke: #7a8498; stroke-width: 1.2; }
+.chart text { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+.chart .axis-title { fill: var(--ink); font-size: 11px; font-weight: 700; }
+.chart .axis-title.right { fill: #6d5bd0; }
+.chart .tick { fill: #5c6478; font-size: 10px; }
+.chart .tick.phase { fill: #6d5bd0; }
+.chart .series { fill: none; stroke-width: 2; stroke-linejoin: round; }
+.chart .series.gain { stroke: #00748d; }
+.chart .series.phase { stroke: #6d5bd0; }
+.chart .series.vin { stroke: #6d5bd0; }
+.chart .series.vout { stroke: #00748d; }
+.chart .legend { font-size: 11px; font-weight: 700; }
+.chart .legend.gain, .chart .legend.vout { fill: #00748d; }
+.chart .legend.phase, .chart .legend.vin { fill: #6d5bd0; }
+
+@media (max-width: 620px) {
+  .chart .tick { font-size: 9px; }
+  .chart .axis-title { font-size: 10px; }
+}

@@ -3,11 +3,15 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Lab 02: BJT DC Bias Web App</title>
+  <title>{% block title %}Lab 02: BJT DC Bias Web App{% endblock %}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
   <div class="page">
+    <nav class="app-nav" aria-label="Lab pages">
+      <a href="{{ url_for('index') }}">DC Bias (Lab 03)</a>
+      <a href="{{ url_for('simulator') }}">CE Simulator (Lab 04)</a>
+    </nav>
     {% block content %}{% endblock %}
   </div>
 </body>

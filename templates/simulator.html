@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+{% block title %}Lab 04: BJT CE Amplifier Simulator{% endblock %}
+
+{% macro sim_field(name, label, unit, hint, raw, errors) -%}
+<div class="field">
+  <div class="field-row">
+    <label for="sim-{{ name }}">{{ label }} <span class="hint">({{ hint }})</span></label>
+    <input type="number" step="any" id="sim-{{ name }}" name="{{ name }}"
+           value="{{ raw.get(name, '') }}" autocomplete="off">
+    <span class="unit">{{ unit }}</span>
+  </div>
+  {% if errors.get(name) %}<p class="error">{{ errors[name] }}</p>{% endif %}
+</div>
+{%- endmacro %}
+
+{% block content %}
+<header class="page-head">
+  <div class="page-head-row">
+    <h1>Lab 04: CE Amplifier Simulator</h1>
+    <span class="course">ENG29 2121 &middot; Real ngspice runs</span>
+  </div>
+  <p class="subtitle">One voltage-divider reference circuit &mdash; DC, AC and transient
+     results from ngspice, with the Lab 3 analytical DC values kept separate.</p>
+</header>
+
+<form class="mode-bar sim-form" method="post" action="{{ url_for('simulator_run') }}">
+  <label for="analysis">Analysis</label>
+  <select id="analysis" name="analysis">
+    {% for key in analyses %}
+    <option value="{{ key }}" {% if analysis == key %}selected{% endif %}>{{ analysis_labels[key] }}</option>
+    {% endfor %}
+  </select>
+  <button type="submit">Run simulation</button>
+  <span class="mode-note">Source: 10 mV peak / 1 kHz by default</span>
+</form>
+{% if errors.get('analysis') %}<p class="error mode-error">{{ errors['analysis'] }}</p>{% endif %}
+
+<div class="grid sim-grid">
+  <section class="card input-card">
+    <h2>Input Parameters</h2>
+    <form class="sim-form" method="post" action="{{ url_for('simulator_run') }}">
+      <input type="hidden" name="analysis" value="{{ analysis }}">
+      <fieldset>
+        <legend>Source</legend>
+        {{ sim_field('amplitude', 'Amplitude', 'V peak', 'SIN source', raw, errors) }}
+        {{ sim_field('frequency', 'Frequency', 'Hz', 'SIN source', raw, errors) }}
+      </fieldset>
+      <fieldset>
+        <legend>Bias &amp; coupling</legend>
+        {% for name, label, unit, hint in fields %}
+        {% if name not in ('amplitude', 'frequency') %}
+        {{ sim_field(name, label, unit, hint, raw, errors) }}
+        {% endif %}
+        {% endfor %}
+      </fieldset>
+      <button type="submit">Run simulation</button>
+    </form>
+  </section>
+
+  <section class="card results">
+    <h2>Run Status</h2>
+    <div class="status status-{{ status_tone }}" id="sim-status">
+      <p class="status-title" id="sim-status-title">{{ status_label }}</p>
+      <p class="status-text">Engine: <strong>{{ engine }}</strong>
+         {% if engine_version %}&middot; {{ engine_version }}{% endif %}<br>
+         Model: <code>{{ model }}</code></p>
+      {% if error_text %}<p class="status-text">{{ error_text }}</p>{% endif %}
+      {% if errors %}<p class="status-text">Check the highlighted inputs.</p>{% endif %}
+    </div>
+    <p class="qmeta">Analysis: <strong>{{ analysis_labels.get(analysis, analysis) }}</strong></p>
+    {% if analysis == 'ac' and sim_values %}
+    <p class="qmeta">Peak gain <strong>{{ '%.2f'|format(sim_values.peak_gain_db) }} dB</strong><br>
+       f<sub>low</sub>:
+       {% if sim_values.f_low_hz is string %}{{ sim_values.f_low_hz }}{% else %}{{ sim_values.f_low_hz|round(2) }} Hz{% endif %}<br>
+       f<sub>high</sub>:
+       {% if sim_values.f_high_hz is string %}{{ sim_values.f_high_hz }}{% else %}{{ sim_values.f_high_hz|round(2) }} Hz{% endif %}</p>
+    {% elif analysis == 'tran' and sim_values %}
+    <p class="qmeta">t<sub>stop</sub> <strong>{{ sim_values.time_stop_s|round(6) }} s</strong><br>
+       V<sub>in</sub> peak {{ sim_values.vin_peak_v|si('V') }}<br>
+       V<sub>out</sub> peak {{ sim_values.vout_peak_v|si('V') }}</p>
+    {% elif analysis == 'dc' and sim_values %}
+    <p class="qmeta">V<sub>BE</sub> {{ sim_values.vbe_v|si('V') }} &middot;
+       V<sub>CE</sub> {{ sim_values.vce_v|si('V') }}</p>
+    {% else %}
+    <p class="qmeta">Press <strong>Run simulation</strong> to start a real ngspice run.</p>
+    {% endif %}
+  </section>
+
+  <section class="card circuit-card">
+    <h2>Solver Model</h2>
+    <p class="circuit-text">The SPICE result uses a documented teaching BJT model,
+       not a claim about a particular transistor part.</p>
+    <pre class="circuit-ascii">{{ model_card }}</pre>
+    <p class="circuit-text">Netlist nodes: <code>vcc, base, collector, emitter, in, out</code>.
+       V<sub>in</sub> is measured at <code>in</code>, V<sub>out</sub> at <code>out</code>.</p>
+  </section>
+</div>
+
+{% if bode_chart %}
+<section class="card chart-card">
+  <h2>AC Response &mdash; ngspice</h2>
+  {{ bode_chart|safe }}
+</section>
+{% endif %}
+
+{% if wave_chart %}
+<section class="card chart-card">
+  <h2>Transient Waveform &mdash; ngspice</h2>
+  {{ wave_chart|safe }}
+</section>
+{% endif %}
+
+{% if analysis == 'dc' and result and status_label == 'Success' %}
+<section class="card verify">
+  <h2>DC Q-point &mdash; SPICE vs Analytical</h2>
+  <table class="compare">
+    <thead>
+      <tr><th>Quantity</th><th>ngspice (SPICE)</th><th>Analytical (Lab 3)</th></tr>
+    </thead>
+    <tbody>
+      <tr><th>V<sub>B</sub></th><td>{{ sim_values.vb_v|si('V') }}</td><td>{{ analytical.vb_v|si('V') }}</td></tr>
+      <tr><th>V<sub>E</sub></th><td>{{ sim_values.ve_v|si('V') }}</td><td>{{ analytical.ve_v|si('V') }}</td></tr>
+      <tr><th>V<sub>C</sub></th><td>{{ sim_values.vc_v|si('V') }}</td><td>{{ analytical.vc_v|si('V') }}</td></tr>
+      <tr><th>V<sub>CE</sub></th><td>{{ sim_values.vce_v|si('V') }}</td><td>{{ analytical.vce_v|si('V') }}</td></tr>
+      <tr><th>I<sub>C</sub></th><td>{{ sim_values.ic_a|si('A') }}</td><td>{{ analytical.ic_a|si('A') }}</td></tr>
+    </tbody>
+  </table>
+  <p class="qmeta">Analytical (Lab 3) assumes &beta; = 100 and V<sub>BE</sub> = 0.7 V.
+     It is an approximation, not the ngspice model above.</p>
+</section>
+{% elif analysis in ('ac', 'tran') and result and status_label == 'Success' %}
+<section class="card verify">
+  <p class="muted">Analytical (Lab 3) computes DC bias only, so it is not applicable to
+     {{ analysis_labels.get(analysis, analysis) }} results.</p>
+</section>
+{% endif %}
+
+<section class="card goal">
+  <span class="tag">Lab 04</span>
+  <p>Every plot above is drawn from parsed ngspice vectors in the current run. If the
+     solver fails or input is invalid, the status shows the error and no earlier plot
+     is displayed.</p>
+</section>
+
+<script>
+document.querySelectorAll('.sim-form').forEach(function (form) {
+  form.addEventListener('submit', function () {
+    const title = document.getElementById('sim-status-title');
+    if (title) title.textContent = 'Running…';
+  });
+});
+</script>
+{% endblock %}
