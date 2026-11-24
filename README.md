@@ -22,6 +22,57 @@ ngspice `.op`, `.ac`, `.tran` ส่วน `/` ยังเป็น DC calculat
 
 ---
 
+## เริ่มต้นใช้งาน / สิ่งที่ส่ง (Submission checklist)
+
+อ่านส่วนนี้ก่อนส่งงาน — เป็นภาพรวมตรงตาม checklist ของใบงาน
+รายละเอียดและผลทดสอบอยู่ในหัวข้อถัดไปและใน
+[`docs/validation.md`](docs/validation.md)
+
+| ข้อ checklist | อยู่ใน repo ที่ไหน |
+|---|---|
+| GitHub URL + Commit SHA | `https://github.com/JirapatMax/Gitlab.git` · ดู SHA ได้จาก `git log -1 --format=%H` (หัวข้อ [Submission](#submission)) |
+| Flask App: CE SPICE DC/AC/Transient + DC Bias เดิม 3 แบบ | `app.py` (`/` และ `/simulator`), `spice_engine.py`, `charts.py` · 102 tests ผ่าน |
+| **README มีขั้นติดตั้ง ngspice/Python dependencies, วิธีรัน Server และ Browser** | **คำสั่งอยู่ในหัวข้อนี้ด้านล่าง** + รายละเอียดใน [Run it (Windows)](#run-it-windows) |
+| `docs/validation.md` บันทึก B1–B8, วิธีตรวจ, ผลจริง, แหล่งอ้างอิง, ความคลาดเคลื่อน, ข้อจำกัด | [`docs/validation.md`](docs/validation.md) |
+| ภาพหน้าจอจริงจาก Browser / บันทึก Impeccable | [`docs/evidence/`](docs/evidence/) — screenshot จาก OpenCode Browser จริง; **Impeccable: NOT RUN** (ระบุตรง ๆ ไม่แต่งหลักฐาน) |
+| บันทึก 3–5 บรรทัด: AI สร้าง/แก้ส่วนใด และนักศึกษาตรวจอะไร | หัวข้อ **สิ่งที่ AI เขียน vs สิ่งที่ตรวจ** ด้านล่าง |
+
+### 1) ติดตั้ง Python dependencies
+
+```powershell
+py -m venv .venv
+.venv\Scripts\python.exe -m pip install -r requirements.txt
+```
+
+### 2) ติดตั้ง ngspice 47 (Windows)
+
+โหลด `ngspice-47_64.7z` จาก SourceForge แตกด้วย `py7zr` ไปที่
+`%LOCALAPPDATA%\ngspice-47` แล้วต้องได้ `...\Spice64\bin\ngspice.exe`
+(หรือตั้ง `NGSPICE_EXE` ให้ชี้ตำแหน่งอื่น) — รายละเอียดอยู่ในหัวข้อ
+**ติดตั้ง ngspice 47 (Windows)** ด้านล่าง binary ไม่ได้ commit ลง repo
+
+### 3) รัน Server
+
+```powershell
+.venv\Scripts\python.exe -m flask --app app run
+```
+
+### 4) เปิด Browser
+
+- <http://127.0.0.1:5000/> — Lab 03, DC Bias 3 แบบ
+- <http://127.0.0.1:5000/simulator> — Lab 04, CE SPICE DC/AC/Transient
+- ถ้าพอร์ต 5000 ถูกใช้: `.venv\Scripts\python.exe -m flask --app app run --port 5001`
+
+### 5) ตรวจว่าติดตั้งครบ
+
+```powershell
+.venv\Scripts\python.exe -m pytest -q
+```
+
+ผลที่คาด: **102 passed** (71 เดิม + 31 ของ Lab 04; บาง test เรียก ngspice จริง)
+
+---
+
 ## วิธีเลือกวงจร
 
 1. เปิดเว็บ แล้วใช้ dropdown **Bias circuit** ด้านบน เลือกโหมดแล้วกด
@@ -249,8 +300,9 @@ requirements.txt            Flask, pytest (ไม่รวม ngspice binary)
 ## Submission
 
 - GitHub: <https://github.com/JirapatMax/Gitlab>
-- งาน Lab 3 อยู่บน branch `main`
-- Commit SHA ของงานนี้ดูได้จาก `git log -1 --format=%H` หรือจากคำตอบที่ส่งพร้อมตาราง A1–A5
+- งาน Lab 3 และ Lab 4 อยู่บน branch `main` (commit เดียวกัน)
+- Commit SHA ของงาน Lab 4 ดูได้จาก `git log -1 --format=%H` หรือหน้า GitHub
+  ที่ <https://github.com/JirapatMax/Gitlab/commits/main>
 
 ## Limitations
 
