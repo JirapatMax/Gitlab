@@ -191,3 +191,253 @@ def run_netlist(netlist: str, *, timeout: float = 20.0) -> RunResult:
             detail = (process.stderr or process.stdout or "").strip()
             return RunResult(ok=False, error=detail or f"ngspice exited with {process.returncode}", **common)
         return RunResult(ok=True, **common)
+
+
+def _header(lines: list[str], key: str) -> str:
+    """Read one `Key: value` line from an ASCII raw header."""
+    for line in lines:
+        name, separator, value = line.partition(":")
+        if separator and name.strip().lower() == key.lower():
+            return value.strip()
+    raise SpiceRunError(f"raw file has no {key!r} header")
+
+
+def parse_raw(raw: str) -> dict:
+    """Decode the ASCII raw vector format written by ngspice 47."""
+    lines = raw.splitlines()
+    if not lines:
+        raise SpiceRunError("raw output is empty")
+    plotname = _header(lines, "Plotname")
+    complex_plot = "complex" in _header(lines, "Flags").lower()
+    try:
+        count = int(_header(lines, "No. Points").split()[0])
+        variable_count = int(_header(lines, "No. Variables").split()[0])
+    except (ValueError, IndexError) as exc:
+        raise SpiceRunError("raw file has invalid point counts") from exc
+    if count <= 0 or variable_count <= 0:
+        raise SpiceRunError("raw file contains no vectors")
+
+    try:
+        variables_start = next(i for i, line in enumerate(lines)
+                               if line.strip().lower() == "variables:")
+        values_start = next(i for i, line in enumerate(lines)
+                            if line.strip().lower() == "values:")
+    except StopIteration as exc:
+        raise SpiceRunError("raw file is missing Variables or Values") from exc
+
+    variables: list[str] = []
+    for line in lines[variables_start + 1:values_start]:
+        parts = line.split()
+        if len(parts) >= 2 and parts[0].isdigit():
+            variables.append(parts[1])
+
+    tokens: list[str] = []
+    for line in lines[values_start + 1:]:
+        parts = line.split()
+        if not parts:
+            continue
+        if parts[0].isdigit():
+            parts = parts[1:]
+        tokens.extend(parts)
+
+    expected = count * variable_count
+    if len(variables) != variable_count or len(tokens) < expected:
+        raise SpiceRunError("raw file is truncated or has inconsistent vector counts")
+
+    points: list[list[float | complex]] = []
+    cursor = 0
+    for _ in range(count):
+        row: list[float | complex] = []
+        for _ in range(variable_count):
+            token = tokens[cursor]
+            cursor += 1
+            try:
+                if complex_plot:
+                    if "," in token:
+                        real_text, imag_text = token.split(",", 1)
+                        number: float | complex = complex(float(real_text), float(imag_text))
+                    else:  # tolerate split real/imag tokens from other raw variants
+                        real_text, imag_text = token, tokens[cursor]
+                        cursor += 1
+                        number = complex(float(real_text), float(imag_text))
+                else:
+                    number = float(token)
+            except ValueError as exc:
+                raise SpiceRunError(f"raw file has a non-numeric value: {token!r}") from exc
+            values = (number.real, number.imag) if isinstance(number, complex) else (number,)
+            if not all(math.isfinite(value) for value in values):
+                raise SpiceRunError("raw file contains a non-finite value")
+            row.append(number)
+        points.append(row)
+
+    command = ""
+    for line in lines:
+        if line.lower().startswith("command:"):
+            command = line.partition(":")[2].strip()
+            break
+    return {
+        "plotname": plotname,
+        "variables": variables,
+        "points": points,
+        "count": count,
+        "command": command,
+    }
+
+
+def _vector(parsed: dict, name: str) -> list[float | complex]:
+    """Return one named raw vector, preserving point order."""
+    target = name.lower()
+    for index, variable in enumerate(parsed["variables"]):
+        if variable.lower() == target:
+            return [point[index] for point in parsed["points"]]
+    raise SpiceRunError(f"raw file is missing vector {name}")
+
+
+def parse_op(raw: str, *, rc: float) -> dict:
+    """Decode the operating point into volts and amps with explicit units."""
+    if rc <= 0:
+        raise SpiceRunError("RC must be positive for IC derivation")
+    parsed = parse_raw(raw)
+    vcc = float(_vector(parsed, "v(vcc)")[0])
+    vb = float(_vector(parsed, "v(base)")[0])
+    ve = float(_vector(parsed, "v(emitter)")[0])
+    vc = float(_vector(parsed, "v(collector)")[0])
+    return {
+        "vcc_v": vcc,
+        "vb_v": vb,
+        "ve_v": ve,
+        "vc_v": vc,
+        "vbe_v": vb - ve,
+        "vce_v": vc - ve,
+        "ic_a": (vcc - vc) / rc,
+    }
+
+
+def _wrapped_degrees(value: float) -> float:
+    """Wrap a phase difference into (-180, 180]."""
+    wrapped = (value + 180.0) % 360.0 - 180.0
+    return wrapped + 360.0 if wrapped <= -180.0 else wrapped
+
+
+def _crossing_between(first: dict, second: dict, threshold: float) -> float | None:
+    """Log-interpolate one adjacent pair crossing the gain threshold."""
+    a, b = first["gain_db"], second["gain_db"]
+    if a == b or (a - threshold) * (b - threshold) > 0:
+        return None
+    f1, f2 = first["frequency_hz"], second["frequency_hz"]
+    if f1 <= 0 or f2 <= 0:
+        return None
+    fraction = (threshold - a) / (b - a)
+    return 10 ** (math.log10(f1) + fraction * (math.log10(f2) - math.log10(f1)))
+
+
+def parse_ac(raw: str) -> dict:
+    """Decode AC vectors into Hz/dB/deg and report only real -3 dB crossings."""
+    parsed = parse_raw(raw)
+    frequencies = _vector(parsed, "frequency")
+    vin = _vector(parsed, "v(in)")
+    vout = _vector(parsed, "v(out)")
+    points: list[dict] = []
+    for f, source, output in zip(frequencies, vin, vout, strict=True):
+        source = complex(source)
+        output = complex(output)
+        if abs(source) == 0:
+            raise SpiceRunError("AC input vector is zero; gain is undefined")
+        gain_db = 20.0 * math.log10(abs(output) / abs(source))
+        phase = math.degrees(math.atan2(output.imag, output.real)
+                             - math.atan2(source.imag, source.real))
+        points.append({
+            "frequency_hz": float(f.real) if isinstance(f, complex) else float(f),
+            "gain_db": gain_db,
+            "phase_deg": _wrapped_degrees(phase),
+        })
+    if not points:
+        raise SpiceRunError("AC analysis returned no points")
+
+    peak_index = max(range(len(points)), key=lambda i: points[i]["gain_db"])
+    threshold = points[peak_index]["gain_db"] - 3.0
+    lower = "not determined in sweep range"
+    for i in range(peak_index - 1, -1, -1):
+        candidate = _crossing_between(points[i], points[i + 1], threshold)
+        if candidate is not None:
+            lower = candidate
+            break
+    upper = "not determined in sweep range"
+    for i in range(peak_index, len(points) - 1):
+        candidate = _crossing_between(points[i], points[i + 1], threshold)
+        if candidate is not None:
+            upper = candidate
+            break
+    return {
+        "points": points,
+        "peak_gain_db": points[peak_index]["gain_db"],
+        "reference_gain_db": points[peak_index]["gain_db"],
+        "f_low_hz": lower,
+        "f_high_hz": upper,
+    }
+
+
+def parse_tran(raw: str) -> dict:
+    """Decode transient vectors into seconds and volts."""
+    parsed = parse_raw(raw)
+    times = _vector(parsed, "time")
+    vin = _vector(parsed, "v(in)")
+    vout = _vector(parsed, "v(out)")
+    points = [
+        {
+            "time_s": float(t),
+            "vin_v": float(source),
+            "vout_v": float(output),
+        }
+        for t, source, output in zip(times, vin, vout, strict=True)
+    ]
+    if not points:
+        raise SpiceRunError("transient analysis returned no points")
+    return {
+        "points": points,
+        "time_stop_s": points[-1]["time_s"],
+        "vin_peak_v": max(abs(point["vin_v"]) for point in points),
+        "vout_peak_v": max(abs(point["vout_v"]) for point in points),
+    }
+
+
+def simulate(raw: Mapping[str, str], analysis: str) -> dict:
+    """Validate, run ngspice, and parse one analysis into unit-bearing data."""
+    base = {"engine": "ngspice", "model": MODEL_NAME, "analysis": analysis}
+    values, errors = validate_sim_inputs(raw)
+    if errors:
+        return {**base, "status": "error", "error": "invalid simulator input",
+                "field_errors": errors}
+    if analysis not in ANALYSES:
+        return {**base, "status": "error", "error": f"unknown analysis: {analysis}",
+                "field_errors": {}}
+
+    netlist = build_netlist(values, analysis)
+    run = run_netlist(netlist)
+    if not run.ok:
+        return {**base, "status": "error", "error": run.error or "ngspice run failed"}
+    if not run.raw.strip():
+        return {**base, "status": "error", "error": "ngspice produced no raw output"}
+
+    try:
+        if analysis == "dc":
+            parsed_values: dict = parse_op(run.raw, rc=values.rc)
+        elif analysis == "ac":
+            parsed_values = parse_ac(run.raw)
+        else:
+            parsed_values = parse_tran(run.raw)
+    except (SpiceRunError, ValueError, KeyError, IndexError,
+            ZeroDivisionError, OverflowError) as exc:
+        return {**base, "status": "error", "error": f"could not parse ngspice output: {exc}"}
+
+    version = ""
+    for line in run.raw.splitlines():
+        if line.lower().startswith("command:"):
+            version = line.partition(":")[2].strip()
+            break
+    return {
+        **base,
+        "status": "success",
+        "engine_version": version or "ngspice (version unknown)",
+        "values": parsed_values,
+    }

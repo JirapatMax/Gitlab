@@ -1,5 +1,6 @@
 """Tests for the ngspice process adapter (Lab 04)."""
 
+import math
 import subprocess
 from pathlib import Path
 
@@ -153,3 +154,91 @@ def test_tran_tstop_shrinks_with_frequency():
 
     assert ".tran 1e-05 0.005" in low
     assert ".tran 5e-06 0.0025" in higher
+
+
+FIXTURES = Path(__file__).parent / "fixtures"
+
+
+def test_parse_op_reads_node_voltages():
+    """Regression: DC values come from ngspice raw vectors, with VCE and IC derived."""
+    raw = (FIXTURES / "op.raw").read_text(encoding="utf-8")
+
+    point = spice_engine.parse_op(raw, rc=2200.0)
+
+    assert point["vb_v"] == 2.0
+    assert point["ve_v"] == 1.0
+    assert point["vc_v"] == 9.0
+    assert point["vce_v"] == 8.0
+    assert point["ic_a"] == pytest.approx((12.0 - 9.0) / 2200.0)
+
+
+def test_parse_ac_and_transient_units():
+    """Regression: AC points carry Hz/dB/deg and transient points carry s/V."""
+    ac = spice_engine.parse_ac((FIXTURES / "ac.raw").read_text(encoding="utf-8"))
+    tran = spice_engine.parse_tran((FIXTURES / "tran.raw").read_text(encoding="utf-8"))
+
+    assert len(ac["points"]) == 3
+    assert ac["points"][-1]["frequency_hz"] == 1000.0
+    assert ac["points"][-1]["gain_db"] == pytest.approx(20 * math.log10(50))
+    assert ac["points"][-1]["phase_deg"] == pytest.approx(180.0)
+    assert len(tran["points"]) == 3
+    assert tran["points"][1]["time_s"] == 0.0005
+    assert tran["points"][1]["vin_v"] == 0.0
+    assert tran["points"][1]["vout_v"] == -1.0  # inverse phase, not a hard-coded plot
+
+
+NO_CROSS_RAW = """Title: fixture
+Plotname: AC Analysis
+Flags: complex
+No. Variables: 3
+No. Points: 2
+Variables:
+\t0\tfrequency\tfrequency\tgrid=3
+\t1\tv(out)\tvoltage
+\t2\tv(in)\tvoltage
+Values:
+0\t\t1.000000000000000e+01,0.000000000000000e+00
+\t1.000000000000000e+02,0.000000000000000e+00
+\t1.000000000000000e+00,0.000000000000000e+00
+1\t\t1.000000000000000e+03,0.000000000000000e+00
+\t1.000000000000000e+02,0.000000000000000e+00
+\t1.000000000000000e+00,0.000000000000000e+00
+"""
+
+
+def test_parse_ac_without_crossing_reports_not_determined():
+    """Regression: no fabricated cutoff frequency when the sweep has no -3 dB point."""
+    result = spice_engine.parse_ac(NO_CROSS_RAW)
+
+    assert result["f_low_hz"] == "not determined in sweep range"
+    assert result["f_high_hz"] == "not determined in sweep range"
+
+
+def test_simulate_error_paths(monkeypatch):
+    """Regression: engine failure and invalid input never return a success result."""
+    monkeypatch.setattr(
+        spice_engine, "run_netlist",
+        lambda netlist: spice_engine.RunResult(ok=False, error="engine unavailable"),
+    )
+
+    failed = spice_engine.simulate(FIXTURE, "dc")
+    invalid = spice_engine.simulate({**FIXTURE, "re": "0"}, "dc")
+
+    assert failed["status"] == "error"
+    assert "engine unavailable" in failed["error"]
+    assert "values" not in failed
+    assert invalid["status"] == "error"
+    assert "re" in invalid["field_errors"]
+
+
+def test_simulate_changes_with_input():
+    """Regression: changing RE or source frequency changes the real simulation output."""
+    base_dc = spice_engine.simulate(FIXTURE, "dc")
+    changed_dc = spice_engine.simulate({**FIXTURE, "re": "2000"}, "dc")
+    base_tran = spice_engine.simulate(FIXTURE, "tran")
+    fast_tran = spice_engine.simulate({**FIXTURE, "frequency": "2000"}, "tran")
+
+    assert base_dc["status"] == changed_dc["status"] == "success"
+    assert base_tran["status"] == fast_tran["status"] == "success"
+    assert base_dc["values"]["ic_a"] != changed_dc["values"]["ic_a"]
+    assert base_tran["values"]["time_stop_s"] != fast_tran["values"]["time_stop_s"]

@@ -1,0 +1,21 @@
+Title: hand-checked fixture
+Date: fixture
+Command: ngspice-47
+Plotname: Transient Analysis
+Flags: real
+No. Variables: 3
+No. Points: 3
+Variables:
+	0	time	time
+	1	v(in)	voltage
+	2	v(out)	voltage
+Values:
+0		0.000000000000000e+00
+	1.000000000000000e-02
+	0.000000000000000e+00
+1		5.000000000000000e-04
+	0.000000000000000e+00
+	-1.000000000000000e+00
+2		1.000000000000000e-03
+	-1.000000000000000e-02
+	0.000000000000000e+00
