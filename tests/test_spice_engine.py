@@ -159,17 +159,26 @@ def test_tran_tstop_shrinks_with_frequency():
 FIXTURES = Path(__file__).parent / "fixtures"
 
 
+def test_fixtures_come_from_real_ngspice_capture():
+    """Regression: parser fixtures are trimmed real ngspice 47 output, not invented."""
+    for name in ("op.raw", "ac.raw", "tran.raw"):
+        text = (FIXTURES / name).read_text(encoding="utf-8")
+
+        assert "Command: ngspice-47" in text
+        assert "hand-checked fixture" not in text
+
+
 def test_parse_op_reads_node_voltages():
-    """Regression: DC values come from ngspice raw vectors, with VCE and IC derived."""
+    """Regression: DC values come from trimmed real ngspice raw vectors."""
     raw = (FIXTURES / "op.raw").read_text(encoding="utf-8")
 
     point = spice_engine.parse_op(raw, rc=2200.0)
 
-    assert point["vb_v"] == 2.0
-    assert point["ve_v"] == 1.0
-    assert point["vc_v"] == 9.0
-    assert point["vce_v"] == 8.0
-    assert point["ic_a"] == pytest.approx((12.0 - 9.0) / 2200.0)
+    assert point["vb_v"] == pytest.approx(1.949112054780261)
+    assert point["ve_v"] == pytest.approx(1.289453695545207)
+    assert point["vc_v"] == pytest.approx(9.189410178900651)
+    assert point["vce_v"] == pytest.approx(7.899956483355444)
+    assert point["ic_a"] == pytest.approx(0.0012775408277724313)
 
 
 def test_parse_ac_and_transient_units():
@@ -177,14 +186,22 @@ def test_parse_ac_and_transient_units():
     ac = spice_engine.parse_ac((FIXTURES / "ac.raw").read_text(encoding="utf-8"))
     tran = spice_engine.parse_tran((FIXTURES / "tran.raw").read_text(encoding="utf-8"))
 
-    assert len(ac["points"]) == 3
-    assert ac["points"][-1]["frequency_hz"] == 1000.0
-    assert ac["points"][-1]["gain_db"] == pytest.approx(20 * math.log10(50))
-    assert ac["points"][-1]["phase_deg"] == pytest.approx(180.0)
-    assert len(tran["points"]) == 3
-    assert tran["points"][1]["time_s"] == 0.0005
-    assert tran["points"][1]["vin_v"] == 0.0
-    assert tran["points"][1]["vout_v"] == -1.0  # inverse phase, not a hard-coded plot
+    assert len(ac["points"]) == 10
+    assert ac["points"][0]["frequency_hz"] == pytest.approx(0.1)
+    assert ac["points"][5]["frequency_hz"] == pytest.approx(9772.372209557949)
+    assert ac["points"][5]["gain_db"] == pytest.approx(4.859794450887965)
+    assert ac["points"][5]["phase_deg"] == pytest.approx(179.98704598947484)
+    assert ac["peak_gain_db"] == pytest.approx(4.859794450887965)
+    assert ac["f_low_hz"] == pytest.approx(4.053357996056244)
+
+    assert len(tran["points"]) == 9
+    assert tran["points"][0]["time_s"] == 0.0
+    assert tran["points"][4]["time_s"] == pytest.approx(0.0007528000000000013)
+    assert tran["points"][4]["vin_v"] == pytest.approx(-0.009998452485944885)
+    assert tran["points"][4]["vout_v"] == pytest.approx(0.01751030854659952)
+    assert tran["time_stop_s"] == pytest.approx(0.005)
+    assert tran["vin_peak_v"] == pytest.approx(0.009998452485944912)
+    assert tran["vout_peak_v"] == pytest.approx(0.01751030854659952)
 
 
 NO_CROSS_RAW = """Title: fixture
@@ -229,6 +246,39 @@ def test_simulate_error_paths(monkeypatch):
     assert "values" not in failed
     assert invalid["status"] == "error"
     assert "re" in invalid["field_errors"]
+
+
+def test_simulate_reports_unexpected_parse_type_as_error(monkeypatch):
+    """Regression: corrupt raw data cannot raise an uncaught TypeError to Flask."""
+    monkeypatch.setattr(spice_engine, "parse_tran", lambda raw: (_ for _ in ()).throw(
+        TypeError("bad complex vector")))
+
+    result = spice_engine.simulate(FIXTURE, "tran")
+
+    assert result["status"] == "error"
+    assert "could not parse ngspice output" in result["error"]
+
+
+def test_simulate_uses_real_ac_capture(monkeypatch):
+    """Regression: simulate() handles the real ngspice AC raw format end to end."""
+    ac_raw = (FIXTURES / "ac.raw").read_text(encoding="utf-8")
+    monkeypatch.setattr(
+        spice_engine, "run_netlist",
+        lambda netlist: spice_engine.RunResult(ok=True, raw=ac_raw),
+    )
+
+    result = spice_engine.simulate(FIXTURE, "ac")
+
+    assert result["status"] == "success"
+    assert result["analysis"] == "ac"
+    assert len(result["values"]["points"]) == 10
+    assert result["values"]["peak_gain_db"] == pytest.approx(4.859794450887965)
+    assert all(
+        math.isfinite(point["frequency_hz"])
+        and math.isfinite(point["gain_db"])
+        and math.isfinite(point["phase_deg"])
+        for point in result["values"]["points"]
+    )
 
 
 def test_simulate_changes_with_input():

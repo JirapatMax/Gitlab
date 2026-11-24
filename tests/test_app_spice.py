@@ -33,13 +33,25 @@ def test_get_simulator_shows_defaults_without_chart(client):
     assert "Not run yet" in body
 
 
-def test_analysis_selector_form_carries_current_parameters(client):
-    """Regression: selecting analysis alone must submit every current field."""
+def test_analysis_selector_and_inputs_share_one_form(client):
+    """Regression: one form carries the selected analysis and edited parameters."""
     body = client.get("/simulator").get_data(as_text=True)
-    top_form = body.split("</form>", 1)[0]
 
-    for name in spice_engine.SIM_FIELDS:
-        assert f'type="hidden" name="{name}"' in top_form
+    assert 'id="sim-run-form"' in body
+    assert '<select id="analysis" name="analysis" form="sim-run-form">' in body
+    assert '<button type="submit" form="sim-run-form">Run simulation</button>' in body
+    assert 'type="hidden" name=' not in body
+
+
+def test_single_submission_uses_selected_analysis_and_edited_value(client):
+    """Regression: one POST honors both the chosen analysis and edited amplitude."""
+    response = client.post(
+        "/simulator", data={**FIXTURE, "analysis": "tran", "amplitude": "0.02"})
+    body = response.get_data(as_text=True)
+
+    assert response.status_code == 200
+    assert "Transient waveform" in body
+    assert "peak 20 mV" in body
 
 
 def test_invalid_input_returns_400_without_chart(client):

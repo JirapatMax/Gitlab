@@ -1,17 +1,25 @@
-Title: hand-checked fixture
-Date: fixture
-Command: ngspice-47
+Title: * ce voltage-divider amplifier - ngspice teaching model
+Date: Tue Nov 24 17:43:05  2026
+Command: ngspice-47, Build Aug 11 2026   13:49:23
 Plotname: Operating Point
 Flags: real
-No. Variables: 4
+No. Variables: 8
 No. Points: 1
 Variables:
 	0	v(vcc)	voltage
 	1	v(base)	voltage
-	2	v(emitter)	voltage
-	3	v(collector)	voltage
+	2	v(collector)	voltage
+	3	v(emitter)	voltage
+	4	v(out)	voltage
+	5	v(in)	voltage
+	6	i(vin)	current
+	7	i(vcc)	current
 Values:
 0		1.200000000000000e+01
-	2.000000000000000e+00
-	1.000000000000000e+00
-	9.000000000000000e+00
+	1.949112054780261e+00
+	9.189410178900651e+00
+	1.289453695545207e+00
+	0.000000000000000e+00
+	0.000000000000000e+00
+	0.000000000000000e+00
+	-1.378049707224630e-03

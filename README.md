@@ -107,8 +107,10 @@ py -m venv .venv
 .venv\Scripts\python.exe -m pytest -q
 ```
 
-ตอนนี้มี **97 tests** (71 tests เดิมของ Lab 03 บวกชุด adapter/validation/parser/
+ตอนนี้มี **102 tests** (71 tests เดิมของ Lab 03 บวกชุด adapter/validation/parser/
 chart/route ของ Lab 04) ผ่านทั้งหมด — หลักฐานว่าโหมด Divider เดิมไม่เสียจากการเพิ่ม simulator
+บาง test (เช่น `test_simulate_changes_with_input` และ route test ที่คาด `Success`)
+เรียก ngspice จริง ไม่ได้ mock ถ้าไม่ติดตั้ง engine ตามข้างบน ชุดทดสอบจะไม่ผ่าน
 
 ## Browser acceptance (A1–A5)
 
@@ -177,6 +179,11 @@ ngspice ถูกเรียกด้วย `subprocess.run([...], shell=False,
 directory แยกต่อการรัน ผล `.op/.ac/.tran` ถูกอ่านจาก ASCII raw จริง แล้วค่อยวาด
 SVG บนเซิร์ฟเวอร์ ไม่มีค่ากราฟหรือ gain ที่ hard-code ไว้ล่วงหน้า
 
+ขอบเขตอินพุตที่ validator ยอมรับ: ทุกค่าต้องเป็น finite และมากกว่า 0;
+`VCC ≤ 1000 V`, `amplitude ≤ 1 V`, `frequency ≤ 1 MHz` ส่วน R/C ทุกตัว
+(รวม R1–RL, Cin, Cout) อยู่ในช่วง `1e-6` ถึง `1e9` ในหน่วยฐาน (Ω/F)
+ค่าขาดหรือผิดประเภทจะถูกปฏิเสธก่อนสร้าง netlist
+
 BJT model ที่ใช้คือ **model การสอน** ไม่ใช่ส่วนประกอบจริงรุ่นใดรุ่นหนึ่ง:
 
 ```spice
@@ -193,6 +200,12 @@ node `in` (หลังแหล่งสัญญาณก่อน `Cin`) แ�
 อย่างชัดเจน ฝั่ง analytical ใช้สมการประมาณเดิมด้วย `β=100`, `VBE=0.7 V` เท่านั้น
 สำหรับ AC/transient หน้าเว็บระบุว่าตาราง analytical ไม่มีผล ถ้าสolver ล้มเหลว
 หรืออินพุตผิด สถานะจะเป็น Error และไม่มีการแสดงกราฟเก่าค้างอยู่
+
+หมายเหตุสำหรับผู้เรียก `spice_engine` โดยตรง: แผนเดิมเขียนว่า `parse_op(log)`
+แต่ ngspice 47 ในเครื่องนี้เขียน node voltage ของ `.op` ไว้ใน ASCII raw file ไม่ใช่ log
+จึงเป็น `parse_op(raw, *, rc)` และใช้ร่วมกับ `parse_ac(raw)` / `parse_tran(raw)` เหมือนกัน
+(path ของ log/raw ใน `RunResult` เป็นข้อมูลวินิจฉัยภายในรัน temporary directory
+ที่ถูกลบแล้ว ไม่ควรใช้เปิดไฟล์ภายหลัง)
 
 ดูวิธีตรวจ B1–B8, หลักฐานจาก browser และข้อจำกัดได้ที่
 [`docs/validation.md`](docs/validation.md)
@@ -217,7 +230,7 @@ charts.py                   SVG Bode/waveform จาก parsed vectors เท่
 templates/index.html        mode selector, ฟอร์มตามโหมด, ผลลัพธ์, การตรวจสอบ
 templates/simulator.html    ฟอร์ม CE, status strip, กราฟ, ตาราง SPICE vs Analytical
 static/style.css            stylesheet ร่วมของทั้งสองหน้า
-tests/                      97 tests: 71 เดิม + 26 ของ Lab 04
+tests/                      102 tests: 71 เดิม + 31 ของ Lab 04
 docs/validation.md          A1–A5 และ B1–B8, ค่าอ้างอิง, หลักฐาน, บทบาท MCP
 docs/reference_calculation.py   สคริปต์คำนวณค่าอ้างอิงอิสระของ Lab 03
 docs/evidence/              ภาพหน้าจอและ log ตัวอย่างจากเบราว์เซอร์/ngspice จริง

@@ -23,26 +23,22 @@
      results from ngspice, with the Lab 3 analytical DC values kept separate.</p>
 </header>
 
-<form class="mode-bar sim-form" method="post" action="{{ url_for('simulator_run') }}">
+<div class="mode-bar sim-form">
   <label for="analysis">Analysis</label>
-  <select id="analysis" name="analysis">
+  <select id="analysis" name="analysis" form="sim-run-form">
     {% for key in analyses %}
     <option value="{{ key }}" {% if analysis == key %}selected{% endif %}>{{ analysis_labels[key] }}</option>
     {% endfor %}
   </select>
-  {% for name, label, unit, hint in fields %}
-  <input type="hidden" name="{{ name }}" value="{{ raw.get(name, '') }}">
-  {% endfor %}
-  <button type="submit">Run simulation</button>
+  <button type="submit" form="sim-run-form">Run simulation</button>
   <span class="mode-note">Source: 10 mV peak / 1 kHz by default</span>
-</form>
+</div>
 {% if errors.get('analysis') %}<p class="error mode-error">{{ errors['analysis'] }}</p>{% endif %}
 
 <div class="grid sim-grid">
   <section class="card input-card">
     <h2>Input Parameters</h2>
-    <form class="sim-form" method="post" action="{{ url_for('simulator_run') }}">
-      <input type="hidden" name="analysis" value="{{ analysis }}">
+    <form id="sim-run-form" class="sim-form" method="post" action="{{ url_for('simulator_run') }}">
       <fieldset>
         <legend>Source</legend>
         {{ sim_field('amplitude', 'Amplitude', 'V peak', 'SIN source', raw, errors) }}

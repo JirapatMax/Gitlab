@@ -19,15 +19,28 @@ def test_charts_have_labeled_axes():
     bode = bode_svg({"status": "success", "values": ac})
     wave = wave_svg({"status": "success", "values": tran})
 
-    assert 'data-points="3"' in bode
+    assert 'data-points="10"' in bode
     for unit in ("Hz", "dB", "deg"):
         assert unit in bode
     assert bode.count("<polyline") == 2  # gain and phase
 
-    assert 'data-points="3"' in wave
+    assert 'data-points="9"' in wave
     for label in ("s", "V", "Vin", "Vout"):
         assert label in wave
     assert wave.count("<polyline") == 2  # input and output
+
+
+def test_wave_coordinates_follow_parsed_values():
+    """Regression: changing one parsed vector changes the rendered polyline."""
+    tran = spice_engine.parse_tran((FIXTURES / "tran.raw").read_text(encoding="utf-8"))
+    original = wave_svg({"status": "success", "values": tran})
+
+    changed_points = [dict(point) for point in tran["points"]]
+    changed_points[4]["vout_v"] *= 2
+    changed = {**tran, "points": changed_points}
+    changed_svg = wave_svg({"status": "success", "values": changed})
+
+    assert changed_svg != original
 
 
 @pytest.mark.parametrize("chart", [bode_svg, wave_svg])

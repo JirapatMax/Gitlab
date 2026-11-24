@@ -158,8 +158,8 @@ Divider : VTH = VCC·R2/(R1+R2),  RTH = R1·R2/(R1+R2)
 | **B2 · DC SPICE** | tab ใหม่ `/simulator`, เลือก DC, submit จริง | `VCC=12, R1=100k, R2=22k, RC=2.2k, RE=1k, RL=10k, Cin=Cout=10µF, amplitude=0.01, frequency=1000` | SPICE ต้องแสดง VB/VE/VC/VCE/IC พร้อม status, engine, model และแยกจาก Analytical (Lab 3) | `Success`; `Engine: ngspice · ngspice-47, Build Aug 11 2026 13:49:23`; `Model: QNPN_TEACH`; SPICE `VB=1.95 V, VE=1.29 V, VC=9.19 V, VCE=7.9 V, IC=1.28 mA, VBE=660 mV` เทียบ Analytical `1.94/1.24/9.29/8.05 V, 1.23 mA` | [`simulator-dc-success.jpeg`](evidence/simulator-dc-success.jpeg), [`ngspice-dc-run.txt`](evidence/ngspice-dc-run.txt) (netlist + log + raw header), POST body มีครบ 10 field | **PASS** |
 | **B3 · Change RE** | tab ใหม่, แก้เฉพาะ `RE=2000` แล้ว submit DC ซ้ำ | เหมือน B2 ทุกประการ ยกเว้น `RE` | Operating point ต้องเปลี่ยน ไม่ใช่ค่าค้างจาก B2 | จาก B2 `IC=1.28 mA, VCE=7.9 V` → B3 `VB=2.05 V, VE=1.4 V, VC=10.5 V, VCE=9.06 V, IC=696 µA, VBE=644 mV`; POST body `...&re=2000&...` | POST body/status 200 และตาราง SPICE vs Analytical จาก DOM | **PASS** |
 | **B4 · AC** | tab ใหม่, เลือก `AC sweep` แล้ว submit จริง | ค่าเดียวกับ B2 (RE=1000) | Bode ต้องมี Frequency/Gain(dB)/Phase(deg) จาก run จริง | `Success`; `Peak gain 4.86 dB`, `f_low=1.82 Hz`, `f_high=not determined in sweep range`; SVG `data-points="801"`, 2 polyline, label `Gain (dB)`, `Phase (deg)`, `Frequency (Hz)`; POST body ครบ 10 field, status 200 | [`simulator-ac-bode.jpeg`](evidence/simulator-ac-bode.jpeg) + network body/DOM chart metadata | **PASS** |
-| **B5 · Transient** | tab ใหม่, เลือก `Transient waveform` แล้ว submit จริง | `10 mV peak / 1 kHz`, ค่าที่เหลือเหมือน B2 | เห็น Vin/Vout ตามเวลา มีหน่วย s/V และสัญญาณกลับเฟส | `Success`; `tstop=0.005 s`, `Vin peak=10 mV`, `Vout peak=17.5 mV`; SVG `data-points="508"`, 2 polyline, label `Vin`, `Vout`, `V`, `s`; correlation ของ y-series บนกราฟ = **−0.999997** → กลับเฟสตาม CE | [`simulator-tran-wave.jpeg`](evidence/simulator-tran-wave.jpeg) + DOM polyline/correlation | **PASS** |
-| **B6 · Change Source** | tab ใหม่, เลือก transient ก่อน, fill `amplitude=0.02`, submit จริง | เหมือน B5 ทุกประการ ยกเว้น amplitude `0.01 → 0.02` | waveform ต้องเปลี่ยนตาม amplitude ไม่ใช่กราฟ hard-code | `Vin peak 10 mV → 20 mV`, `Vout peak 17.5 mV → 35 mV`; chart ยังเป็น `data-points="508"`/2 polyline; POST body `...&amplitude=0.02&...`, status 200 | [`simulator-tran-wave.jpeg`](evidence/simulator-tran-wave.jpeg) (รัน amplitude 0.02) + network body | **PASS** |
+| **B5 · Transient** | tab ใหม่, เลือก `Transient waveform` แล้ว submit จริง | `10 mV peak / 1 kHz`, ค่าที่เหลือเหมือน B2 | เห็น Vin/Vout ตามเวลา มีหน่วย s/V และสัญญาณกลับเฟส | `Success`; `tstop=0.005 s`, `Vin peak=10 mV`, `Vout peak=17.5 mV`; SVG `data-points="508"`, 2 polyline, label `Vin`, `Vout`, `V`, `s`; correlation ของ y-series บนกราฟ = **−0.999997** → กลับเฟสตาม CE | [`simulator-tran-10mv.jpeg`](evidence/simulator-tran-10mv.jpeg) + DOM polyline/correlation | **PASS** |
+| **B6 · Change Source** | tab ใหม่, เลือก transient ก่อน, fill `amplitude=0.02`, submit จริง | เหมือน B5 ทุกประการ ยกเว้น amplitude `0.01 → 0.02` | waveform ต้องเปลี่ยนตาม amplitude ไม่ใช่กราฟ hard-code | `Vin peak 10 mV → 20 mV`, `Vout peak 17.5 mV → 35 mV`; chart ยังเป็น `data-points="508"`/2 polyline; POST body `...&amplitude=0.02&...`, status 200 | [`simulator-tran-20mv.jpeg`](evidence/simulator-tran-20mv.jpeg) (รัน amplitude 0.02) + network body | **PASS** |
 | **B7 · Invalid / Fail** | tab ใหม่, fill `RE=0`, submit จริง | DC พร้อม `RE=0` | แจ้ง error, ไม่ค้าง, ไม่โชว์ success ปลอม | POST `/simulator` **400**; ข้อความข้างช่อง RE `must be greater than 0`; status `Not run yet` พร้อม `Check the highlighted inputs`; `svg.chart` count **0**; ช่อง RE ยังเป็น `0` ให้แก้ | [`simulator-invalid-re.jpeg`](evidence/simulator-invalid-re.jpeg) + network 400 | **PASS** |
 | **B8 · UI** | tab จริง + iframe ขนาด ~390px เปิดหน้าเดิมและหน้า AC success | desktop 800×654, mobile 388×898 และ 390×1050 | ปุ่ม/กราฟ/หน่วยอ่านง่าย ไม่มีเนื้อหาสำคัญถูกตัด | desktop `scrollWidth=800`, ปุ่มกว้าง 119/329 px, chart ไม่ overflow; mobile_initial `innerWidth=388, scrollWidth=388`; mobile AC `innerWidth=390, scrollWidth=375`, ปุ่ม 119/309 px, chart 801 points, status `Success`; console สะอาด | [`simulator-desktop.jpeg`](evidence/simulator-desktop.jpeg), [`simulator-mobile-390.jpeg`](evidence/simulator-mobile-390.jpeg), [`simulator-mobile-ac.jpeg`](evidence/simulator-mobile-ac.jpeg) | **PASS** |
 
@@ -183,15 +183,24 @@ Divider : VTH = VCC·R2/(R1+R2),  RTH = R1·R2/(R1+R2)
 - พบครั้งแรกใน B4: ปุ่ม **Run simulation** แถบด้านบนส่ง POST body เพียง
   `analysis=ac` → HTTP 400 `required` ทุกช่อง Root cause:ฟอร์มแถบด้านบนไม่มี
   hidden input สำหรับ 10 parameter ที่ฟอร์มด้านล่างใช้
-- แก้ด้วย regression test ใหม่
+- แก้ขั้นแรกด้วย regression test
   `tests/test_app_spice.py::test_analysis_selector_form_carries_current_parameters`
   (RED ก่อน → GREEN หลังเพิ่ม hidden input ใน `templates/simulator.html`) แล้ว restart
   server เพราะตอนนั้นรันแบบ debug off จึงยัง cache template เก่าอยู่
+- ในการตรวจ branch รอบสุดท้าย พบว่าการใช้ hidden input สองชุดยังทำให้ state คลาดเคลื่อน
+  (เลือก analysis ด้านบนแล้วกดปุ่มล่าง หรือแก้ค่าล่างแล้วกดปุ่มบน) จึงรวมเป็น
+  **ฟอร์มเดียว** `id="sim-run-form"` โดย `<select>` และปุ่มด้านบนใช้ attribute
+  `form="sim-run-form"` ไม่มี hidden input ซ้ำอีกต่อไป
+- regression ใหม่: `test_analysis_selector_and_inputs_share_one_form` (RED → GREEN),
+  `test_single_submission_uses_selected_analysis_and_edited_value`, และตรวจใน browser
+  จริง: เลือก `Transient waveform` ด้านบน → แก้ amplitude เป็น `0.02` ในฟอร์มล่าง →
+  กดปุ่มบน ได้ POST `analysis=tran&amplitude=0.02&...`, status 200, `Vin peak 20 mV`;
+  อีกเคสเลือก `AC sweep` ด้านบนแล้วกดปุ่มล่างก็ได้ AC จริงเช่นกัน
 - หลังแก้ B4 POST body มีครบ `analysis, vcc, r1, r2, rc, re, rl, cin, cout,
-  amplitude, frequency` และ status 200; รันชุดทดสอบเต็มอีกครั้ง = **97 passed**
-- หมายเหตุการใช้งาน: ควรเลือก analysis ก่อน แล้วค่อยกรอกค่าในฟอร์มด้านล่าง/กดปุ่ม
-  ที่ต้องการ หากเปลี่ยน analysis หลังกรอกค่าแล้วกดปุ่มด้านล่าง ค่า `analysis` ที่ซ่อน
- อยู่ในฟอร์มด้านล่างยังเป็นรอบก่อน (ต้องกดปุ่มแถบด้านบนเพื่อ re-render ก่อน)
+  amplitude, frequency` และ status 200; รันชุดทดสอบเต็มอีกครั้ง = **102 passed**
+- parser fixtures ถูกเปลี่ยนจากตัวอย่างที่แต่งขึ้นเป็น `.raw` จริงของ ngspice 47 ที่
+  ตัดเฉพาะบางจุด (ดู `tests/fixtures/README.md`) และมี test ตรวจหัว raw จริง
+  `Command: ngspice-47` พร้อม `test_simulate_uses_real_ac_capture`
 
 ## ข้อจำกัดที่ยังต้องระบุให้ตรงความจริง
 

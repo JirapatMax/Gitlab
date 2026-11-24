@@ -426,7 +426,7 @@ def simulate(raw: Mapping[str, str], analysis: str) -> dict:
             parsed_values = parse_ac(run.raw)
         else:
             parsed_values = parse_tran(run.raw)
-    except (SpiceRunError, ValueError, KeyError, IndexError,
+    except (SpiceRunError, ValueError, TypeError, KeyError, IndexError,
             ZeroDivisionError, OverflowError) as exc:
         return {**base, "status": "error", "error": f"could not parse ngspice output: {exc}"}
 
